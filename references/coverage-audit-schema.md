@@ -58,6 +58,8 @@
 - `finalCheck` 三项必须全部为 `true`，分别确认顺序读到末尾、未因篇幅或条目数提前停止、页面出处已经对照 `source_map.json`。
 - `sourceBlocks`：必须逐项覆盖 `source_map.json[].source_id`。标记为 `covered` 时，`mappedUnits` 或 `mappedClaims` 至少一项非空；无学习内容的块使用 `no-content` 并保留事实性理由。快速了解模式可以把已扫描但未进入核心学习页的次要来源块标为 `quick-omitted`；系统学习模式禁止使用该状态。禁止用一个笼统文件级条目代替逐来源块映射。
 
+`covered` 只能表示该块已经实际读取并完成与单元或主张的映射；它不自动证明图表、扫描文字、公式、表格或附录已核验。`coverage-audit.md` 应逐块补记这些内容的核验状态、无法解析的边界与处理决定，并记录方法候选项的来源与最终去向。`finalCheck` 是执行者确认，不能用三个 `true` 替代来源块对照、候选项对账或读回关键论断。遇到影响结论的未核验范围，先补核或说明无法完成全量交付。
+
 完成 `coverage-audit.json` 后生成反向抽查报告：
 
 ```bash

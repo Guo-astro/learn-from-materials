@@ -19,13 +19,20 @@ try {({chromium}=require('playwright'));} catch(e) {console.error('Playwright un
     assert.equal(await page.locator('#frameworks #wholeMethod').count(),0);
     assert.equal(await page.locator('#rules #wholeMethod').count(),1);
     await page.locator('#frameworks .relation-tools button').nth(1).click();
-    assert.equal(await page.locator('#frameworks .diagram-card').count(),data.frameworks.length);
-    await page.locator('#frameworks .diagram-node-button').first().click();
-    // Selecting a node deliberately collapses the detail panel and offers a disclosure
-    // button ("查看详细说明与出处") — click it before asserting the panel is visible.
-    const fwMore=page.locator('#frameworks .diagram-more');
-    if(await fwMore.count())await fwMore.first().click();
-    assert(await page.locator('#frameworks .relation-detail h3').isVisible());
+    const map=page.locator('#frameworks .lfm-mm');
+    assert(await map.isVisible(),'Framework mind map must open');
+    await map.locator('.lfm-mm-tools button').filter({hasText:/展开全部|Expand all/}).click();
+    assert.equal(await map.locator('.lfm-mm-node').count(),data.frameworks.length);
+    const frameworkIds=new Set(data.frameworks.map(n=>n.id));
+    const frameworkEdges=(data.relationships||[]).filter(e=>frameworkIds.has(e.from)&&frameworkIds.has(e.to));
+    assert.equal(await map.locator('.lfm-mm-wire').count(),frameworkEdges.length,'Every source framework link must remain visible after expansion');
+    assert.equal(await map.locator('.lfm-mm-edge-label').count(),frameworkEdges.length);
+    await map.locator('.lfm-mm-select').first().focus();
+    assert(await page.locator('.lfm-mm-hover').isVisible(),'Framework explanations must be available on focus');
+    await map.locator('.lfm-mm-tools button').filter({hasText:/全屏展开|Fullscreen/}).click();
+    assert(await map.isVisible());
+    assert(await map.evaluate(n=>Math.abs(n.getBoundingClientRect().height-innerHeight)<3),'Framework fullscreen must fill the viewport');
+    await page.keyboard.press('Escape');
     await page.locator('#tab-rules').click();
     // The rules panel ships cards-first too; activate the diagram view before
     // touching its toolbar, otherwise .diagram-tools has zero size and is not visible.
@@ -108,7 +115,7 @@ try {({chromium}=require('playwright'));} catch(e) {console.error('Playwright un
     assert.equal(await page.locator('.is-expanded .diagram-card').count(),data.methodology.nodes.length);
     await page.keyboard.press('Escape');
     assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);
-    console.log('PASS: cards-first, framework map, whole methodology in rules, no card/wire collisions, fullscreen, prompt, sources and mobile overflow.');
+    console.log('PASS: cards-first, complete framework mind map, whole methodology in rules, no card/wire collisions, fullscreen, prompt, sources and mobile overflow.');
     await context.close();
   } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

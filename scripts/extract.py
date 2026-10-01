@@ -21,5 +21,7 @@ sys.path.insert(0, str(os.path.dirname(os.path.abspath(__file__))))
 
 from extractor.utils import main
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
     main()

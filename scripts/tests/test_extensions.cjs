@@ -14,6 +14,7 @@ function fixture(data, clipboardMode='ok') {
     set textContent(value){this._text=String(value);this.children=[];}
     get textContent(){return this._text+this.children.map(x=>x.textContent).join('');}
     get options(){return this.children.filter(x=>x.tagName==='option');}
+    get childElementCount(){return this.children.length;}
     append(...nodes){for(const value of nodes){const n=typeof value==='string'?Object.assign(new Element('#text'),{textContent:value}):value;n.parent=this;this.children.push(n);}}
     insertBefore(node,before){if(!before){this.append(node);return;}const i=this.children.indexOf(before);assert(i>=0);node.parent=this;this.children.splice(i,0,node);}
     replaceChildren(...nodes){this.children=[];this.append(...nodes);}
@@ -30,7 +31,7 @@ function fixture(data, clipboardMode='ok') {
     setCustomValidity(value){this.validityMessage=value;}
     reportValidity(){return !this.validityMessage;}
   }
-  document={activeElement:null,getElementById:id=>roots.flatMap(x=>[x,...x.all()]).find(x=>x.id===id)||null,createElement:tag=>new Element(tag),createElementNS:(_ns,tag)=>new Element(tag),execCommand:()=>true};
+  document={activeElement:null,getElementById:id=>roots.flatMap(x=>[x,...x.all()]).find(x=>x.id===id)||null,createElement:tag=>new Element(tag),createElementNS:(_ns,tag)=>new Element(tag),createDocumentFragment:()=>new Element('#fragment'),execCommand:()=>true};
   const add=(tag,id,parent)=>{const n=new Element(tag);n.id=id;(parent?parent.children:roots).push(n);return n;};
   add('script','pageData').textContent=JSON.stringify(data);
   const frameworkHost=add('section','frameworks');add('div','',frameworkHost).className='grid';
@@ -42,8 +43,9 @@ function fixture(data, clipboardMode='ok') {
   let copied='';
   const navigator=clipboardMode==='missing'?{}:{clipboard:{writeText:async text=>{if(clipboardMode==='denied')throw Error('denied');copied=text;}}};
   const graphs=[];
-  const window={LFMGraphStudio:{mount:(host,options)=>{const graph={...options,layout:()=>{},select:id=>options.onSelect(id)};graphs.push(graph);return graph;}}};
+  const window={LFMMindMap:{mount:(host,options)=>{const graph={...options,refresh:()=>{},select:id=>options.describe(id)};graphs.push(graph);return graph;}}};
   const context=vm.createContext({document,navigator,window,requestAnimationFrame:fn=>fn(),Option:function(text,value){const opt=new Element('option');opt.textContent=text;opt.value=value;return opt;}});
+  vm.runInContext(fs.readFileSync(path.join(root,'templates/source-presentation.js'),'utf8'),context);
   vm.runInContext(fs.readFileSync(path.join(root,'templates/extensions.js'),'utf8'),context);
   return {document,form,dialog,frameworkHost,ruleHost,graphs,copied:()=>copied};
 }
@@ -51,11 +53,11 @@ function fixture(data, clipboardMode='ok') {
 (async()=>{
   let cases=0;
   {
-    const data=JSON.parse(fs.readFileSync(path.join(root,'examples/overview-whole-methodology.json'),'utf8'));
+    const data=JSON.parse(fs.readFileSync(path.join(root,'examples/overview-systematic-demo.json'),'utf8'));
     const f=fixture(data),get=id=>f.document.getElementById(id);
     assert(f.frameworkHost.querySelector('.relation-tools'));assert.equal(f.frameworkHost.querySelector('.grid').hidden,false);
     get('applyMethod').onclick();assert.equal(get('methodSelect').value,'whole');
-    get('methodProblem').value='The experience library grows without useful transfer.';
+    get('methodProblem').value='The team is debating an assumption without checking evidence.';
     await f.form.dispatch('submit');
     const prompt=get('methodPrompt').value,body=JSON.parse(prompt.slice(prompt.indexOf('{\n')));
     assert.equal(body.selection,'whole-material');assert.deepEqual(body.methodology,data.methodology);
@@ -66,17 +68,16 @@ function fixture(data, clipboardMode='ok') {
     assert.equal(selected.selection,'selected');assert.equal(selected.method.id,data.frameworks[0].id);
     cases++;
   }
-  for(const filename of ['overview-en-content.json','overview-zh-content.json','overview-methods-content.json']){
+  for(const filename of ['overview-en-content.json','overview-current-zh.json','overview-methods-content.json']){
     const data=JSON.parse(fs.readFileSync(path.join(root,'examples',filename),'utf8'));
     for(const mode of ['ok','denied','missing']){
       const f=fixture(data,mode),get=id=>f.document.getElementById(id);
       f.frameworkHost.querySelector('.relation-tools').children[1].onclick();
       assert.equal(get('frameworks-relations').hidden,false);
       assert.equal(f.frameworkHost.querySelector('.grid').hidden,true);
-      f.graphs[0].select(data.frameworks[0].id);
-      const details=get('frameworks-relations').querySelector('.relation-detail');
+      const details=f.graphs[0].select(data.frameworks[0].id);
       assert(details.textContent.includes(data.frameworks[0].source));
-      details.querySelector('button').onclick();
+      assert.equal(f.graphs[0].nodes.length,data.frameworks.length);
       get('applyMethod').onclick();get('methodSelect').value=data.frameworks[0].id;
       assert.equal(f.dialog.open,true);assert.equal(get('methodSelect').value,data.frameworks[0].id);
       get('methodProblem').value='   ';await f.form.dispatch('submit');assert(get('methodProblem').validityMessage);
@@ -92,7 +93,16 @@ function fixture(data, clipboardMode='ok') {
       if(mode==='denied'){assert.equal(f.copied(),'');assert(get('methodPrompt').selected);assert(get('methodStatus').textContent.includes(data.meta.language==='en'?'manually':'手动'));}
       await get('methodProblem').dispatch('input');assert.equal(get('methodPrompt').value,'');
       get('methodClose').onclick();assert.equal(f.dialog.open,false);
-      get('applyMethod').onclick();assert.equal(get('methodSelect').value,'auto');await f.form.dispatch('submit');
+      get('applyMethod').onclick();
+      const whole=data.methodology?.status==='ready';assert.equal(get('methodSelect').value,whole?'whole':'auto');
+      if(whole){
+        await f.form.dispatch('submit');const wholePrompt=get('methodPrompt').value;
+        const wholeBody=JSON.parse(wholePrompt.slice(wholePrompt.indexOf('{\n')));
+        assert.equal(wholeBody.selection,'whole-material');assert.deepEqual(wholeBody.methodology,data.methodology);
+        assert.equal(wholeBody.methodologyRef,data.methodology.id+'@'+data.methodology.version);
+        if(data.meta.language==='en')assert(!/[\u3400-\u9fff]/.test(wholePrompt));
+      }
+      get('methodSelect').value='auto';await f.form.dispatch('submit');
       const auto=JSON.parse(get('methodPrompt').value.slice(get('methodPrompt').value.indexOf('{\n')));
       assert.equal(auto.methodIndex.length,data.frameworks.length+data.decisionRules.length);
       if(data.methodLibrary)assert.equal(auto.savedMethodIndex.length,data.methodLibrary.methods.length);
@@ -108,7 +118,7 @@ function fixture(data, clipboardMode='ok') {
   f.frameworkHost.querySelector('.relation-tools').children[1].onclick();
   const panel=get('frameworks-relations');
   assert.equal(f.graphs[0].nodes.length,large.frameworks.length,'All nodes supplied, without pagination');
-  f.graphs[0].select('extra-19');assert(panel.querySelector('.relation-detail').textContent.includes('Independent 19'));cases++;
+  assert(f.graphs[0].select('extra-19').textContent.includes('Independent 19'));cases++;
   const empty=JSON.parse(JSON.stringify(base));empty.relationships=[];empty.decisionRules=[];
   const noRules=fixture(empty);assert(noRules.document.getElementById('applyMethod'));cases++;
   const flow=JSON.parse(JSON.stringify(base));flow.relationships=[{...base.relationships[0],from:'f-map',to:'f-evidence',type:'sequence'},{...base.relationships[0],from:'f-evidence',to:'f-action',type:'prerequisite'}];

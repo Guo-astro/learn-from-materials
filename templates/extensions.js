@@ -4,7 +4,14 @@
   const meta = data.meta || {};
   if (meta.mode !== 'overview') return;
   const en = meta.language === 'en';
+  const sourceUI = globalThis.LFMSourcePresentation?.forPage(data);
+  const sourceText = value => sourceUI ? sourceUI.text(value) : String(value || '');
   const say = (zh, english) => en ? english : zh;
+  const ruleCondition = value => {
+    if (sourceUI) return sourceUI.ruleCondition(value);
+    const condition = String(value || '').trim();
+    return /^(?:当|when\b)/i.test(condition) ? condition : say('当 ', 'When ') + condition;
+  };
   const el = (tag, text, cls) => { const node = document.createElement(tag); if (text != null) node.textContent = text; if (cls) node.className = cls; return node; };
   const types = {
     prerequisite: say('是前提', 'prerequisite for'), sequence: say('下一步', 'followed by'),
@@ -15,7 +22,7 @@
   };
   const frameworks = data.frameworks || [], rules = data.decisionRules || [];
   const nodes = frameworks.map((x, i) => ({...x, id:x.id || 'legacy-f-' + i, kind:'framework', title:x.name, detail:x.oneLine}))
-    .concat(rules.map((x, i) => ({...x, id:x.id || 'legacy-r-' + i, kind:'rule', title:x.do, detail:say('当 ', 'When ') + x.when + say('；因为 ', '; because ') + x.because})));
+    .concat(rules.map((x, i) => ({...x, id:x.id || 'legacy-r-' + i, kind:'rule', title:x.do, detail:ruleCondition(x.when) + say('；因为 ', '; because ') + x.because})));
   const byId = new Map(nodes.map(x => [x.id, x]));
   const edges = data.relationships || [];
   const evidenceLabel = edge => edge.evidence === 'material' ? say('材料依据', 'Material evidence') : say('辅助理解的推断', 'Inference for understanding');
@@ -24,7 +31,8 @@
     item.append(el('strong', byId.get(edge.from).title + ' → ' + byId.get(edge.to).title));
     item.append(el('div', types[edge.type] + ' · ' + evidenceLabel(edge), 'relation-evidence'));
     item.append(el('p', edge.explanation));
-    item.append(el('p', say('出处：', 'Source: ') + edge.source, 'relation-source'));
+    item.append(el('p', say('出处：', 'Source: ') + sourceText(edge.source), 'relation-source'));
+    sourceUI?.original(item,edge.source);
     list.append(item);
   }
   function addGraph(moduleId, pool) {
@@ -35,18 +43,13 @@
     cardButton.type=graphButton.type='button';cardButton.setAttribute('aria-pressed','true');graphButton.setAttribute('aria-pressed','false');
     toolbar.append(cardButton,graphButton);host.insertBefore(toolbar,cards);cards.classList.add('relation-cards');
     const panel=el('div',null,'relation-panel');panel.hidden=true;panel.id=moduleId+'-relations';graphButton.setAttribute('aria-controls',panel.id);
-    const canvas=el('div',null,'relation-canvas'),detail=el('div',null,'relation-detail');detail.setAttribute('aria-live','polite');panel.append(canvas,detail);
+    const canvas=el('div',null,'relation-canvas');panel.append(canvas);
     const text=el('details'),list=el('ul',null,'relation-edge-list');text.append(el('summary',say('全部关系与出处','All relationships and sources')),list);links.forEach(e=>appendEdge(list,e));
-    if(!links.length)list.append(el('li',say('材料尚未提供框架间的有据关系，保留独立节点。','No supported framework links were supplied; nodes remain independent.')));
+    if(!links.length)list.append(el('li',say('本图暂未建立框架间的连线；这不表示原材料中的概念彼此独立。','No framework links are recorded in this view yet; this does not establish that the concepts are independent in the material.')));
     panel.append(text);host.insertBefore(panel,cards);
     let diagram=null;
-    function choose(id,edgeId){
-      const n=byId.get(id);detail.replaceChildren(el('h3',n.title),el('p',n.detail),el('p',say('适用：','Applies when: ')+n.when),el('p',n.source,'relation-source'));
-      const nearby=el('ul',null,'relation-edge-list');links.filter(e=>edgeId?e.id===edgeId:e.from===id||e.to===id).forEach(e=>appendEdge(nearby,e));detail.append(nearby);
-      const read=el('button',say('返回框架卡片','Return to cards'));read.type='button';read.onclick=()=>toggle(false);detail.append(read);
-    }
-    function toggle(on){panel.hidden=!on;cards.hidden=on;cardButton.setAttribute('aria-pressed',String(!on));graphButton.setAttribute('aria-pressed',String(on));
-      if(on&&!diagram){diagram=window.LFMGraphStudio.mount(canvas,{language:meta.language,kind:'framework',title:say('框架如何相互连接','How the frameworks connect'),nodes:pool.map(n=>({...n,summary:n.detail,tag:say('核心框架','Core framework')})),edges:links.map(e=>({...e,label:types[e.type]})),onSelect:choose,detail,describe:(id)=>{const n=byId.get(id),frag=document.createDocumentFragment();frag.append(el('h3',n.title),el('p',n.detail),el('p',say('适用：','Applies when: ')+n.when),el('p',n.source,'relation-source'));const nearby=el('ul',null,'relation-edge-list');links.filter(e=>e.from===id||e.to===id).forEach(e=>appendEdge(nearby,e));if(!nearby.childElementCount)nearby.append(el('li',say('材料尚未提供该框架与其他框架的有据关系，保留独立节点。','No supported framework link was supplied; the node stays independent.'),'hover-empty'));frag.append(nearby);return frag;}});detail.textContent=say('选中节点，查看框架之间的关系、理由与原文出处。','Select a node to inspect relationships, reasons and sources.');}
+    function toggle(on){panel.hidden=!on;cards.hidden=on;cardButton.setAttribute('aria-pressed',String(!on));graphButton.setAttribute('aria-pressed',String(on));if(!on&&diagram?.hide)diagram.hide();
+      if(on&&!diagram){diagram=window.LFMMindMap.mount(canvas,{language:meta.language,title:say('框架关系思维导图','Framework relationship mind map'),sourceText,sourceOriginal:sourceUI?.original,nodes:pool.map(n=>({...n,summary:n.detail,tag:say('核心框架','Core framework')})),edges:links.map(e=>({...e,label:types[e.type]})),describe:(id)=>{const n=byId.get(id),frag=document.createDocumentFragment();frag.append(el('h3',n.title),el('p',n.detail),el('p',sourceUI?sourceUI.frameworkCondition(n.when):say('适用：','Applies when: ')+n.when),el('p',sourceText(n.source),'relation-source'));sourceUI?.original(frag,n.source);const nearby=el('ul',null,'relation-edge-list');links.filter(e=>e.from===id||e.to===id).forEach(e=>appendEdge(nearby,e));if(!nearby.childElementCount)nearby.append(el('li',say('本图暂未建立该框架与其他框架的连线；需要关系解释时仍须核对原材料。','No links to other frameworks are recorded in this view yet; check the original material before interpreting this absence.'),'hover-empty'));frag.append(nearby);return frag;}});}
       /* Re-entering the panel must re-announce the graph: a panel switch does not move
          the viewport, so neither the IntersectionObserver nor the scroll listener fires.
          Two frames: one to become visible, one to have real measurements. */

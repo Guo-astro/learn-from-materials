@@ -165,7 +165,7 @@ try {
       console.log(`✅ ${tabs.length} 个 Tab 全部可切换`);
     }
 
-    // 2b. 验证六主题实时切换
+    // 2b. 验证三套读者主题实时切换（存储 ID 沿用旧版）
     const picker = page.locator('#themePicker');
     if (await picker.count() !== 1) {
       errors.push('❌ 缺少主题选择器');

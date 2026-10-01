@@ -121,19 +121,37 @@ def validate(model, page=None, kb=None):
             require(any(s['quote'] in p for p in passages), 'quote absent from evidence blocks')
     return model
 
-def markdown(model):
+def edge_label(edge, language):
+    """Reader wording; canonical kind, condition and source remain unchanged."""
+    if edge['kind'] == 'feedback' and edge.get('condition'):
+        return edge['condition'].strip()
+    labels = {
+        'main': ('接着做', 'Next'), 'branch': ('满足条件才做', 'Only when conditions are met'),
+        'feedback': ('返回修正', 'Return and revise'), 'supports': ('提供支持', 'Supports'),
+        'contains': ('包含 / 属于', 'Contains'), 'causes': ('促成 / 导致', 'Causes'),
+        'prerequisite': ('先要具备', 'Prerequisite'), 'parallel': ('并行 / 并列', 'In parallel'),
+        'contrasts': ('对比', 'Comparison')
+    }
+    return labels.get(edge['kind'], ('关联', 'Relation'))[language == 'en']
+
+
+def markdown(model, source_labels=None):
     en=model['language']=='en'
     say=lambda zh,en_text: en_text if en else zh
+    source=lambda value: (source_labels or {}).get(value,value) if en else value
     lines=['# '+model['title'],'',model['note'],'',say('目标：','Goal: ')+model['outcome'],'']
     for n in model['nodes']:
-        lines += ['## '+n['title'],'',say('证据类型：','Evidence: ')+n['evidence'],'']
+        evidence = say('材料依据','Material evidence') if n['evidence'] == 'material' else say('根据材料作出的推断','Inference from the material')
+        lines += ['## '+n['title'],'',say('证据类型：','Evidence: ')+evidence,'']
         for k,zh,eng in [('input','输入','Input'),('action','行动 / 关系含义','Action / meaning'),('output','产出','Output'),('check','检查','Check')]:
-            lines += [say(zh,eng)+': '+n[k],'']
-        lines += [s['source'] for s in n['sources']]+['']
+            lines += [say(zh,eng)+say('：',': ')+n[k],'']
+        lines += [source(s['source']) for s in n['sources']]+['']
     names={n['id']:n['title'] for n in model['nodes']}
     for e in model['edges']:
-        lines += [f"- {names[e['from']]} → {names[e['to']]} ({e['kind']}; {e['evidence']})",'  '+e['condition'],'  '+e['handoff'],'  '+e['why'],'  '+e['source'],'']
-    lines += [say('## 全程约束','## Constraints'),'']+[c['text']+' — '+c['source'] for c in model['constraints']]
+        relation = edge_label(e, model['language'])
+        evidence = say('材料依据','Material evidence') if e['evidence'] == 'material' else say('根据材料作出的推断','Inference from the material')
+        lines += [f"- {names[e['from']]} → {names[e['to']]}"+say('（',' (')+relation+say('；','; ')+evidence+say('）',')'),'  '+e['condition'],'  '+e['handoff'],'  '+e['why'],'  '+source(e['source']),'']
+    lines += [say('## 全程约束','## Constraints'),'']+[c['text']+' — '+source(c['source']) for c in model['constraints']]
     return '\n'.join(lines)+'\n'
 
 def main():
@@ -161,4 +179,7 @@ def main():
     except (ValueError,OSError,KeyError,TypeError) as exc:
         p.exit(2,str(exc)+'\n')
 
-if __name__=='__main__': main()
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
+    main()

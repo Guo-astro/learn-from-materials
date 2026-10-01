@@ -69,6 +69,8 @@ const PROBE = [
   '})()'
 ].join('\n');
 
+const MIND_PROBE = '(function(){var m=document.querySelector("#frameworks .lfm-mm");if(!m)return JSON.stringify({vis:false,wires:0});var r=m.getBoundingClientRect();return JSON.stringify({vis:r.width>0&&r.height>0,wires:m.querySelectorAll(".lfm-mm-wire").length,nodes:m.querySelectorAll(".lfm-mm-node").length});})()';
+
 // Both graphs live in the same document, so a raw index is not stable: the panel
 // that is off-screen still exists and reports height 0. Always take the visible one.
 const pickVisible = list => (list || []).find(o => o.vis) || (list || [])[0] || {};
@@ -122,45 +124,35 @@ const check = (label, ok, detail) => {
   // --- open the framework graph ------------------------------------------
   await ev("(function(){var t=document.getElementById('tab-frameworks');if(t)t.click();return 1;})()");
   await sleep(900);
-  await ev("(function(){var b=[].slice.call(document.querySelectorAll('button'));for(var i=0;i<b.length;i++){if((b[i].textContent||'').trim()==='框架关系图'){b[i].click();return 1;}}return 0;})()");
+  await ev("(function(){var b=document.querySelector('#frameworks .relation-tools button:nth-child(2)');if(b)b.click();return b?1:0;})()");
   await sleep(1200);
-  await ev("(function(){var st=[].slice.call(document.querySelectorAll('.diagram-studio'));var s=null;st.forEach(function(x){var r=x.getBoundingClientRect();if(r.height>100&&(!s||r.height>s.getBoundingClientRect().height))s=x;});if(s){var r=s.getBoundingClientRect();scrollBy(0,r.top-80);}return 1;})()");
-  await sleep(4200);
-
-  const first = pickVisible(JSON.parse(await ev(PROBE)));
-  console.log('--- framework graph, first open ---');
-  console.log('   cls=' + first.cls + ' wires=' + first.wires + ' flows=' + first.flows + ' dash=' + first.dash + ' off=' + first.off + ' flowOp=' + first.flowOp);
-  if (wantReduced) {
-    check('reduced motion: wires complete', first.dash === 'none' || first.dash === '0px');
-    check('reduced motion: no flow head', String(first.flowOp) === '0');
-    check('reduced motion: drawn class only', (first.cls || '').indexOf('is-drawn') > -1 && (first.cls || '').indexOf('is-flowing') === -1);
-  } else {
-    check('first open: wires drawn', first.dash === 'none' || first.dash === '0px', 'dash=' + first.dash);
-    check('first open: no perpetual flow', String(first.flowOp) === '0', 'opacity=' + first.flowOp);
-    check('first open: flow layer present', first.flows > 0, first.flows + ' flow path(s)');
-  }
+  await ev("(function(){var m=document.querySelector('#frameworks .lfm-mm');if(m){var b=[].slice.call(m.querySelectorAll('button')).find(function(x){return /展开全部|Expand all/.test(x.textContent||'');});if(b)b.click();}return 1;})()");
+  await sleep(700);
+  const first = JSON.parse(await ev(MIND_PROBE));
+  const expected = await ev("(function(){var d=JSON.parse(document.getElementById('pageData').textContent),ids=new Set(d.frameworks.map(function(n){return n.id;}));return (d.relationships||[]).filter(function(e){return ids.has(e.from)&&ids.has(e.to);}).length;})()");
+  console.log('--- framework mind map, expanded ---');
+  check('mind map visible', first.vis === true);
+  check('all framework links drawn', first.wires === expected, first.wires + ' / ' + expected);
 
   // --- switch away and back ----------------------------------------------
   await ev("document.getElementById('tab-content').click();1");
   await sleep(1500);
-  const away = pickVisible(JSON.parse(await ev(PROBE)));
+  const away = JSON.parse(await ev(MIND_PROBE));
   console.log('\n--- switched away ---');
-  console.log('   vis=' + away.vis + ' cls=' + away.cls);
+  console.log('   vis=' + away.vis);
 
   await ev("document.getElementById('tab-frameworks').click();1");
   await sleep(3000);
-  const back = pickVisible(JSON.parse(await ev(PROBE)));
+  const back = JSON.parse(await ev(MIND_PROBE));
   console.log('\n--- switched back ---');
-  console.log('   vis=' + back.vis + ' cls=' + back.cls + ' dash=' + back.dash + ' off=' + back.off + ' wires=' + back.wires);
+  console.log('   vis=' + back.vis + ' wires=' + back.wires);
   check('tab return: graph visible', back.vis === true);
-  check('tab return: wires still drawn', back.dash === 'none' || back.dash === '0px', 'dash=' + back.dash);
-  check('tab return: wire count intact', back.wires > 0, back.wires + ' wire(s)');
-  check('tab return: still map restored', (back.cls || '').indexOf('is-drawn') > -1 && (back.cls || '').indexOf('is-static') > -1, 'cls=' + back.cls);
+  check('tab return: wire count intact', back.wires === expected, back.wires + ' / ' + expected);
 
   // --- methodology graph across the three themes -------------------------
   await ev("(function(){var t=document.getElementById('tab-rules');if(t)t.click();return 1;})()");
   await sleep(900);
-  await ev("(function(){var b=[].slice.call(document.querySelectorAll('button'));for(var i=0;i<b.length;i++){if((b[i].textContent||'').trim()==='方法论关系图'){b[i].click();return 1;}}return 0;})()");
+  await ev("(function(){var b=document.querySelectorAll('#rules .action-view-button')[1];if(b)b.click();return b?1:0;})()");
   await sleep(1600);
   await ev("(function(){var g=document.querySelector('.method-map');if(g){var r=g.getBoundingClientRect();scrollBy(0,r.top-90);}return 1;})()");
   await sleep(3200);

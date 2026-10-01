@@ -1,12 +1,17 @@
 # 知识学习助手内容契约 4.3
 
-v0.5.9-beta：新系统学习 PDF 的展示出处必须来自 `source-heading-index.json`；原文标题和编号逐项核对，见 `source-heading-index.md`。
+## Citation presentation extension (v1.0.3)
 
-v0.5.8-beta：页面字段 schema 仍为 4.3。系统学习的新 overview 使用 v2 `action-rule-ledger.json`，逐单元追踪候选规则、可见卡片、方法论节点及两张图的关系类型复核；详情见 `action-rule-ledger.md`。核心框架默认卡片，可切换框架关系图；整体方法论固定放在行动规则。新 overview 使用 finalize.py 自动绑定并交付 methods.json、patterns.md、methodology.json、methodology.md。设计与最终生成入口详见 diagram-design-and-delivery.md。
+Schema 4.3 accepts optional top-level `sourceLabels` for overview/topic/unit pages. It maps exact original citation strings to reviewed display strings; it never changes `source`, `locator`, quotes or source IDs. New English delivery requires a mapping for Chinese title/heading text in source labels. Chapter numbers and printed/PDF page assignments must be preserved; unknown keys and altered locators are rejected. The presentation original is accessible in a disclosure. See `language-relationships-application.md` for examples and translation limits.
 
-v0.4.0-beta.1：新增 overview 顶层 `methodology`（整体方法论的独立分析层），以及 `contentUnits[].sourceDetails`（细粒度出处）。新 overview 必须按 `whole-material-methodology.md` 生成、核验并绑定整体结构；旧页面可不带该字段。整体视图默认展示完整逻辑，具体步骤/节点数量由材料决定，支持条件分支与反馈。字段详见该引用，不得凭空添加布局坐标。出处支持悬停、键盘聚焦和触屏展开；精确定位缺失时显示单元/结论页段。
 
-v0.3.0-beta.1 扩展：overview 可选顶层 `methodLibrary`，只能由 `methods.py bind` 嵌入通过校验的 methods-v1 数据。绑定卡片的名称、摘要、适用条件、理由和主出处均来自这份数据，手改漂移会被拒绝。常规渲染入口还会与知识库 `methods.json` 对照并核验来源块哈希及短引文。没有该字段的旧页面继续兼容。详见 `method-library.md`。
+兼容约定：新系统学习 PDF 的展示出处必须来自 `source-heading-index.json`；原文标题和编号逐项核对，见 `source-heading-index.md`。
+
+兼容约定：页面字段 schema 仍为 4.3。系统学习的新 overview 使用 v2 `action-rule-ledger.json`，逐单元追踪候选规则、可见卡片、方法论节点及两张图的关系类型复核；详情见 `action-rule-ledger.md`。核心框架默认卡片，可切换框架关系图；整体方法论固定放在行动规则。新 overview 使用 finalize.py 自动绑定并交付 methods.json、patterns.md、methodology.json、methodology.md。设计与最终生成入口详见 diagram-design-and-delivery.md。
+
+兼容约定：新增 overview 顶层 `methodology`（整体方法论的独立分析层），以及 `contentUnits[].sourceDetails`（细粒度出处）。新 overview 必须按 `whole-material-methodology.md` 生成、核验并绑定整体结构；旧页面可不带该字段。整体视图默认展示完整逻辑，具体步骤/节点数量由材料决定，支持条件分支与反馈。字段详见该引用，不得凭空添加布局坐标。出处支持悬停、键盘聚焦和触屏展开；精确定位缺失时显示单元/结论页段。
+
+兼容约定：overview 可选顶层 `methodLibrary`，只能由 `methods.py bind` 嵌入通过校验的 methods-v1 数据。绑定卡片的名称、摘要、适用条件、理由和主出处均来自这份数据，手改漂移会被拒绝。常规渲染入口还会与知识库 `methods.json` 对照并核验来源块哈希及短引文。没有该字段的旧页面继续兼容。详见 `method-library.md`。
 
 新生成内容使用 4.3；渲染器仍兼容 4.2。先按 SKILL.md 确定输出语言，并读取 `language-relationships-application.md`。下文中文示例不是固定输出语言。英语页面的解释性字段必须用英语生成；仅设置语言字段不会翻译已有正文。
 
@@ -91,6 +96,8 @@ v0.3.0-beta.1 扩展：overview 可选顶层 `methodLibrary`，只能由 `method
 }
 ```
 
+`decisionRules.when` 保存原始条件，不为显示效果重复加词。HTML、Markdown、关系详情与方法论关联规则展示条件时，仅在缺少引导词时补一次“当”或 “When”；原文已经以“当”或 “When”开头时原样保留。格式化不得改写条件、原因或出处。
+
 数量规则：`frameworks`、`glossary`、`decisionRules`、`assessment.focusAreas` 和每个单元的 `conclusions` **均不设置数量上限、配额或“达到下限即可结束”的完成线**。按材料可提炼的独立信息单元完整收录：框架收录所有可改变判断或行动的命名结构及必要的描述性结构；术语收录所有理解材料所必需的术语、角色、流程、指标和英文缩写；行动规则收录全部条件—行动—原因关系；自检考点覆盖全部关键框架、概念区分、判断点、图表解读和案例教训。`focusAreas` 只定义可测范围与能力层级，不预生成题干、提示或答案。仅合并语义完全等价的重复项，不得以条目已经很多为由省略独立内容。框架、内容单元、术语与自检考点至少包含一项；行动规则确实不存在时可为空，但新系统学习页必须用规则账本逐单元记录复查证据和原因，不得把未处理当作无规则。
 
 上一段数量规则仅适用于 `systematic`；`quick` 以主线、关键条件、必要术语和核心考点为边界，`decisionRules` 可为空，其余核心模块至少有一项。
@@ -101,7 +108,7 @@ v0.3.0-beta.1 扩展：overview 可选顶层 `methodLibrary`，只能由 `method
 
 `meta` 固定包含 `title/creator/sourceType/mode/pageId/learningDepth/language/initialTheme/knowledgeBase`；`language` 为 `zh-CN` 或 `en`，同样适用于 topic/unit。`hero` 固定包含 `eyebrow/title/lede/thesis`。`learningDepth` 为 `quick/systematic`。`pageId` 跨重新生成保持不变；它与所有 `id` 都必须以英文字母开头，只含英文字母、数字、`-`、`_`。框架与行动规则必须有全局唯一 `id`；其他原有字段要求不变。旧版 4.2 缺少 language 时默认中文，缺少方法 ID 时不凭空生成逻辑关系。
 
-overview 的 `relationships` 必须是数组。新系统学习页按页面真实显示的框架→框架边检查；有两个以上框架却没有可见关系时，必须回到材料取证。材料确实不支持框架间连线，可在规则账本中设置 `relationStatus: "unsupported"` 和具体理由，保留空图而不编造边。部分框架独立时，在 `independentFrameworks` 中逐项说明。旧页面的人工例外由 `--legacy-rule-ledger` 明示。
+overview 的 `relationships` 必须是数组。新系统学习页按页面真实显示的框架→框架边检查；有两个以上框架却没有可见关系时，必须回到材料取证。材料确实不支持框架间连线，可在规则账本中设置 `relationStatus: "unsupported"` 和具体理由，保留空图而不编造边。框架未建立可见有据连线时，在 `independentFrameworks` 中逐项记录复查依据与原因；这个兼容字段名不自动证明概念在原文中互相独立。旧页面的人工例外由 `--legacy-rule-ledger` 明示。
 
 每张行动规则卡片必须关联整体方法论节点的 `methodIds`，或作为带理由的独立规则留在卡片区。框架→规则关系可用于来源解释，但不会显示在框架关系图，因此不能用它代替框架间的连线。写边前核对当前端点 ID，改名后同步更新引用。
 
@@ -111,8 +118,8 @@ overview 的 `relationships` 必须是数组。新系统学习页按页面真实
 
 学习深度只在解析与内容生成前询问。职业和兴趣不进入 `page.json`，仍由最终 HTML 在首次打开后询问，并仅保存在浏览器本地。
 
-`frameworks` 与 `glossary` 的每项必须包含 `firstUnitId` 和 `sourceOrder`。`firstUnitId` 指向该内容在材料中第一次被实质介绍的内容单元；`sourceOrder` 在各自数组内从 1 开始连续编号。渲染器只按 `sourceOrder` 排列，不按分类、字母或模型输出顺序重排。框架顺序必须与各 `contentUnits[].frameworks` 的首次引入顺序一致；术语顺序必须按首次出现单元递增，同单元内按实际出现位置排列。多材料先按 `source_manifest.json` 文件顺序，再按文件内部定位确定首次出现。
-框架卡片与框架关系图的显示编号都取框架自身的 `sourceOrder`；图中位置和连线改变时编号不变，10 号显示为 `10`，不得显示为 `010`。整体方法论节点的编号只表示其本图显示顺序，不与行动规则卡片序号互相指代。
+`frameworks` 与 `glossary` 的每项必须包含 `firstUnitId` 和 `sourceOrder`。`firstUnitId` 指向该内容在材料中第一次被实质介绍的内容单元；`sourceOrder` 在各自数组内从 1 开始连续编号。框架卡片、术语和暂未建立连线的框架网格按 `sourceOrder` 排列，不按分类、字母或模型输出顺序重排；有连线的关系图可按图结构布置空间位置，原数组、编号与内容不变。框架顺序必须与各 `contentUnits[].frameworks` 的首次引入顺序一致；术语顺序必须按首次出现单元递增，同单元内按实际出现位置排列。多材料先按 `source_manifest.json` 文件顺序，再按文件内部定位确定首次出现。
+框架卡片与框架关系图的显示编号都取框架自身的 `sourceOrder`；图中位置和连线改变时编号不变，10 号显示为 `10`，不得显示为 `010`。整体方法论节点的编号只表示其本图显示顺序，不与行动规则卡片序号互相指代。框架图的分组、根节点、路由坐标和搜索状态仅由渲染器计算，不进入内容 JSON；不得为排版新增节点/关系、减少框架数量或绕过无关系的说明门禁。
 
 ## 内容单元规则
 

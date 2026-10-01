@@ -35,7 +35,7 @@ def closed_temporary_file(suffix):
 class RegressionTests(unittest.TestCase):
     def test_overview_renders_dynamic_assessment_and_local_mistakes(self) -> None:
         skill_root = Path(__file__).resolve().parents[2]
-        data = json.loads((skill_root / "examples" / "overview-content.json").read_text(encoding="utf-8"))
+        data = json.loads((skill_root / "scripts" / "tests" / "fixtures" / "compat-4.2.json").read_text(encoding="utf-8"))
         data["frameworks"].reverse()
         data["glossary"].reverse()
         with tempfile.TemporaryDirectory() as temp:
@@ -65,7 +65,7 @@ class RegressionTests(unittest.TestCase):
 
     def test_quick_mode_renders_visible_scope_and_upgrade_action(self) -> None:
         skill_root = Path(__file__).resolve().parents[2]
-        data = json.loads((skill_root / "examples" / "overview-content.json").read_text(encoding="utf-8"))
+        data = json.loads((skill_root / "scripts" / "tests" / "fixtures" / "compat-4.2.json").read_text(encoding="utf-8"))
         data["meta"]["learningDepth"] = "quick"
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "quick.html"
@@ -81,7 +81,7 @@ class RegressionTests(unittest.TestCase):
 
     def test_reader_layout_preserves_semantic_tabs_and_design_tokens(self) -> None:
         skill_root = Path(__file__).resolve().parents[2]
-        data = json.loads((skill_root / "examples" / "overview-content.json").read_text(encoding="utf-8"))
+        data = json.loads((skill_root / "scripts" / "tests" / "fixtures" / "compat-4.2.json").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "reader.html"
             render(data, output, None)
@@ -319,8 +319,8 @@ class RegressionTests(unittest.TestCase):
 
     def test_summary_ledger_rejects_missing_content_summary_mapping(self) -> None:
         skill_root = Path(__file__).resolve().parents[2]
-        data = json.loads((skill_root / "examples" / "overview-content.json").read_text(encoding="utf-8"))
-        ledger = json.loads((skill_root / "examples" / "示例方法材料.learnkb" / "summary-ledger.json").read_text(encoding="utf-8"))
+        data = json.loads((skill_root / "scripts" / "tests" / "fixtures" / "compat-4.2.json").read_text(encoding="utf-8"))
+        ledger = json.loads((skill_root / "scripts" / "tests" / "fixtures" / "legacy.learnkb" / "summary-ledger.json").read_text(encoding="utf-8"))
         ledger["claims"][0]["summaryRefs"].remove("unit:ch01:core")
         unit_ids = {item["id"] for item in data["contentUnits"]}
         errors = validate_summary_ledger(ledger, data, unit_ids, True)

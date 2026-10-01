@@ -22,7 +22,7 @@ class QuickTests(unittest.TestCase):
         self.kb = self.root / 'demo.learnkb'
         self.kb.mkdir()
         self.page = self.root / 'page.json'
-        self.data = json.loads((SCRIPTS.parent / 'examples/overview-content.json').read_text())
+        self.data = json.loads((SCRIPTS.parent / 'scripts/tests/fixtures/compat-4.2.json').read_text(encoding='utf-8'))
         self.data['meta'].update(learningDepth='quick', sourceType='text', knowledgeBase='demo.learnkb/INDEX.md')
         self.data['decisionRules'] = []
         for area in self.data['assessment']['focusAreas']:
@@ -44,7 +44,7 @@ class QuickTests(unittest.TestCase):
         result = subprocess.run([sys.executable, str(SCRIPTS / 'extract.py'), str(source),
                                  '--output-dir', str(self.kb), '--ocr', 'off'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.blocks = json.loads((self.kb / 'source_map.json').read_text())
+        self.blocks = json.loads((self.kb / 'source_map.json').read_text(encoding='utf-8'))
         ids = [b['source_id'] for b in self.blocks]
         self.audit = {'schemaVersion':'learn-from-materials/quick-audit-v1', 'learningDepth':'quick',
                       'structure':[{'title':'合成测试章节', 'sourceIds':ids, 'status':'scanned', 'note':'用于结构测试，不代表语义评测'}],
@@ -69,7 +69,7 @@ class QuickTests(unittest.TestCase):
         render(self.data, output, self.root / 'quick.md')
         errors, _, _ = verify_static(output)
         self.assertEqual(errors, [])
-        self.assertIn('不额外编造建议', output.read_text())
+        self.assertIn('不额外编造建议', output.read_text(encoding='utf-8'))
         result = subprocess.run([sys.executable, str(SCRIPTS / 'render_page.py'), str(self.page),
                                  '-k', str(self.kb), '-o', str(output), '--legacy'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)

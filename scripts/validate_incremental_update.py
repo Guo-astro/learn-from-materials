@@ -73,5 +73,7 @@ def main() -> None:
     print("✅ 增量更新身份与未受影响单元校验通过")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
     main()

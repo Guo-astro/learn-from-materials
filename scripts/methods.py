@@ -238,4 +238,7 @@ def main():
     except (ValueError,OSError,KeyError,TypeError) as exc: parser.exit(2,str(exc)+'\n')
 
 
-if __name__=='__main__': main()
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
+    main()

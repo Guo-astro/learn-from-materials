@@ -61,6 +61,8 @@ def collect_sources(value: object) -> list[str]:
     output: list[str] = []
     if isinstance(value, dict):
         for key, child in value.items():
+            if key == "sourceLabels":
+                continue
             if key == "source" and isinstance(child, str) and child.strip():
                 output.append(child.strip())
             elif key == "sourceDetails" and isinstance(child, dict):
@@ -308,7 +310,8 @@ def validate_summary_ledger(ledger: object, data: dict, unit_ids: set[str], enfo
     return errors
 
 
-def verify(page_json: Path, kb_dir: Path | None = None, *, require_heading_index: bool = False) -> list[str]:
+def verify(page_json: Path, kb_dir: Path | None = None, *, require_heading_index: bool = False,
+           require_claim_mapping: bool = False, require_content_review: bool = False) -> list[str]:
     errors: list[str] = []
     data = load_json(page_json)
     if not isinstance(data, dict):
@@ -402,6 +405,10 @@ def verify(page_json: Path, kb_dir: Path | None = None, *, require_heading_index
                 errors.append(f"{label} 必须包含 mappedUnits 与 mappedClaims 数组")
             elif status == "covered" and not (units or claims):
                 errors.append(f"{label} 标为 covered 时必须映射到单元或主张")
+            if (require_claim_mapping or require_content_review) and status == "covered":
+                known_claims = {c.get('id') for c in summary_ledger.get('claims', []) if isinstance(c, dict)}
+                if not claims or not isinstance(claims, list) or any(not isinstance(c, str) or c not in known_claims for c in claims):
+                    errors.append(f"{label} 在系统学习中必须映射有效的 summary claim")
             if status == "quick-omitted" and (data.get("meta") or {}).get("learningDepth") != "quick":
                 errors.append(f"{label} 只有快速了解模式可以使用 quick-omitted")
         audit_depth = audit.get("learningDepth", "systematic")
@@ -454,6 +461,10 @@ def verify(page_json: Path, kb_dir: Path | None = None, *, require_heading_index
         unit_ids,
         str((data.get("meta") or {}).get("mode") or "") == "overview",
     ))
+    review_path = resolved_kb / 'content-review.json'
+    if require_content_review or review_path.is_file():
+        from content_review import validate_file
+        errors.extend(validate_file(review_path, data, resolved_kb))
     audit_entries = {
         str(item.get("filename") or "").strip(): item
         for item in audit["sources"]
@@ -562,10 +573,13 @@ def main() -> None:
     parser.add_argument("--knowledge-base", "-k", type=Path)
     parser.add_argument("--require-heading-index", action="store_true",
                         help="Require reviewed original PDF headings for a new systematic delivery")
+    parser.add_argument("--require-content-review", action="store_true",
+                        help="Require source claim mapping and current independent content-review evidence")
     args = parser.parse_args()
     try:
         errors = verify(args.page_json.resolve(), args.knowledge_base,
-                        require_heading_index=args.require_heading_index)
+                        require_heading_index=args.require_heading_index,
+                        require_content_review=args.require_content_review)
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(2)
@@ -576,5 +590,7 @@ def main() -> None:
     print("✅ 所选学习深度的覆盖与出处校验通过")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
     main()

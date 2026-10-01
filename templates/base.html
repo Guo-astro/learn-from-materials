@@ -2356,6 +2356,7 @@
       .tabs { border-radius:14px; }
       .panel { border-radius:18px; }
     }
+    {{visual_style}}
   </style>
 </head>
 <body data-theme="{{theme_name}}" data-mode="{{body_mode}}">
@@ -2364,10 +2365,11 @@
       <button id="guideBtn" class="guide-toggle" type="button" title="打开小巴新手引导并修改画像">小巴导读</button>
       <label for="themePicker" class="sr-only">页面主题</label>
       <select id="themePicker" class="theme-picker" aria-label="页面主题">
-        <option value="warm-paper">雾蓝书房</option>
-        <option value="minimal">灰白画册</option>
-        <option value="dark">深海夜读</option>
+        <option value="warm-paper">海盐云纱</option>
+        <option value="minimal">黑白水墨</option>
+        <option value="dark">竹月清</option>
       </select>
+      <button id="motionToggle" class="motion-toggle" type="button" aria-pressed="true">动效：开</button>
       <button id="srcToggle" class="src-toggle" type="button" title="显示/隐藏出处">显示出处</button>
     </div>
     {{hero}}
@@ -2453,6 +2455,7 @@
 
   <div class="dd-toast" id="ddToast"></div>
   <script id="pageData" type="application/json">{{page_data}}</script>
+  <script>{{presentation_script}}</script>
   <script>
     (function() {
       var pageData = {};
@@ -2645,6 +2648,14 @@
         };
       });
 
+      function setSource(node, source) {
+        node.setAttribute("data-source", source || "");
+        node.setAttribute("data-source-display", presentSource(source));
+      }
+      function presentSource(source) {
+        var presenter = globalThis.LFMSourcePresentation && globalThis.LFMSourcePresentation.forPage(pageData);
+        return presenter ? presenter.text(source) : source || "";
+      }
       function appendList(parent, title, items) {
         var block = make("div", "ch-block");
         block.appendChild(make("h4", "", title));
@@ -2660,7 +2671,7 @@
         section.appendChild(make("h4", "", "点开结论，继续往下理解"));
         groups.forEach(function(item) {
           var details = make("details", "chapter-conclusion");
-          details.setAttribute("data-source", item.source || "");
+          setSource(details, item.source);
           var summary = make("summary");
           summary.appendChild(make("span", "conclusion-title", item.title || "单元结论"));
           summary.appendChild(make("span", "conclusion-summary", item.summary || ""));
@@ -2700,7 +2711,7 @@
           button.classList.toggle("active", button.getAttribute("data-ch") === id);
         });
         clear(view);
-        view.setAttribute("data-source", unit.source || "");
+        setSource(view, unit.source);
         view.appendChild(make("div", "ch-view-label", unit.label + " · " + unit.title));
         var core = make("p", "ch-core");
         core.appendChild(make("strong", "", "核心思想："));
@@ -2726,7 +2737,7 @@
       function setExplain(node, item) {
         if (!node || !item) { return; }
         clear(node);
-        node.setAttribute("data-source", item.source || "");
+        setSource(node, item.source);
         node.appendChild(document.createTextNode(item.body || ""));
         var dive = make("button", "deep-dive-btn", "?");
         dive.type = "button";
@@ -2761,7 +2772,7 @@
           document.querySelectorAll('.city-btn[data-section-id="' + sectionId + '"]').forEach(function(item) { item.classList.remove("active"); });
           button.classList.add("active");
           clear(result);
-          result.setAttribute("data-source", option.source || "");
+          setSource(result, option.source);
           result.appendChild(make("h3", "", option.title || option.label));
           result.appendChild(make("p", "", option.body || ""));
           var watch = make("p");
@@ -3314,7 +3325,7 @@
           appendPersonalNoteSection(body, "我的理解", item.insight);
           appendPersonalNoteSection(body, "下一步行动", item.action);
           appendPersonalNoteSection(body, "个人补充", item.personal);
-          if (item.source) { body.appendChild(make("div", "personal-note-source", "出处：" + item.source)); }
+          if (item.source) { body.appendChild(make("div", "personal-note-source", "出处：" + presentSource(item.source))); }
           var actions = make("div", "personal-note-actions");
           [["copy", "复制笔记"], ["edit", "编辑"], ["delete", "删除"]].forEach(function(pair) {
             var button = make("button", pair[0] === "delete" ? "note-delete" : "", pair[1]);
@@ -3442,7 +3453,7 @@
         }
         noteDialogTitle.textContent = existing ? "编辑我的笔记" : "新增自由笔记";
         noteDialogContext.textContent = existing ? "修改后重新保存，更新时间会自动刷新。" : "直接写下想记录的内容；保存后可继续搜索和回顾。";
-        noteSourcePreview.textContent = [currentNoteSubject, currentNoteSource ? "出处：" + currentNoteSource : "", currentNoteExcerpt].filter(Boolean).join("\n\n") || "自由笔记不绑定材料出处。";
+        noteSourcePreview.textContent = [currentNoteSubject, currentNoteSource ? "出处：" + presentSource(currentNoteSource) : "", currentNoteExcerpt].filter(Boolean).join("\n\n") || "自由笔记不绑定材料出处。";
         noteTitleInput.value = existing ? existing.title : (currentNoteSubject === "自由笔记" ? "" : currentNoteSubject);
         noteSummaryInput.value = existing ? existing.summary : currentNoteExcerpt;
         noteInsightInput.value = existing ? existing.insight : "";

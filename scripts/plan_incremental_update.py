@@ -160,5 +160,7 @@ def main() -> None:
     print(f"Update plan: {mode}; {len(plan['impactedUnitIds'])} existing unit(s) impacted")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
     main()

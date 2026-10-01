@@ -3,7 +3,8 @@ name: learn-from-materials
 description: Turn books, PDFs, slides, documents, web pages and text into a source-grounded knowledge base, interactive learning HTML and Markdown in English or Chinese. Use for learning, summaries, explanations, review, quizzes, relationship maps, saving reusable methodology files, retrieving or comparing accumulated methods, and applying them to a real problem. 将材料转为可追溯知识库与交互学习页，支持中英文、关系图、方法论保存/检索/比较及应用；区分材料依据、推断与外部核验。
 license: MIT; see LICENSE.md and NOTICE.md
 metadata:
-  version: 0.2.0
+  version: "1.0"
+  revision: release
   compatibility: Requires filesystem access and Python 3.10+. Node.js and Playwright are optional for browser verification. Visual or OCR capability is recommended for scanned PDFs and image-heavy slides.
 ---
 
@@ -13,13 +14,19 @@ metadata:
 
 ## Language routing — before your first reply
 
-Resolve output language in this order: explicit user preference → language of the current substantive user request (ignore attached material, quotations, code and paths) → established conversation language. English requests produce English; Chinese requests produce Chinese. If genuinely ambiguous, ask one short language question together with any required learning-depth choice. Do not infer nationality or language from identity, browser settings, filenames, or the material's language. This beta supports `en` and `zh-CN`; for another requested language, state the limit and ask which supported language to use.
+Resolve output language in this order: explicit user preference → language of the current substantive user request (ignore attached material, quotations, code and paths) → established conversation language. English requests produce English; Chinese requests produce Chinese. If genuinely ambiguous, ask one short language question together with any required learning-depth choice. Do not infer nationality or language from identity, browser settings, filenames, or the material's language. This version supports `en` and `zh-CN`; for another requested language, state the limit and ask which supported language to use.
 
 Set `meta.language` in new schema `4.3` JSON. Generate all explanatory fields, headings, knowledge-base prose, HTML, Markdown, relationship explanations, quiz prompts and follow-up/application answers in that language. Preserve original quotations, source titles, filenames and exact locators. The renderer translates fixed controls, not supplied content: changing only `meta.language` does not translate old Chinese content. Regenerate explanatory fields when changing languages; preserve `pageId`, method IDs and source evidence. Chinese instructions/examples in this package are not a preference to answer in Chinese. Later references to 中文标注/中文含义 apply only to Chinese output.
 
+### Citation language and long-text layout
+
+Keep `source`, `locator`, `sourceIds`, original quotes and page identities unchanged. For an English page with Chinese title/heading text in citations, author reviewed `sourceLabels` mapping each exact raw citation to an English display label. Translate chapter titles for this presentation layer, keep the same chapter and printed/PDF page assignments, and retain the original label in the built-in disclosure. Do not translate filenames or evidence in place. New English deliveries fail when Chinese citation labels are missing, untranslated or change locator numbers; old-page `--legacy` rendering retains its explicit compatibility boundary. See the source-label contract in `references/language-relationships-application.md`.
+
+The renderer owns condition prefixes. Supply one condition, with or without its initial When/当; do not concatenate a second prefix. Check cards, navigation, sources and both graph details in both languages. Tabs size to their text, badges must stay round, and source text belongs in document flow. For browser acceptance inspect long English headings and source ranges, narrow widths, 200% text/zoom, switching units, keyboard focus, all three themes and fullscreen. Static or in-memory checks are not visual acceptance. Report unperformed checks explicitly.
+
 Before generating a page, also read `references/language-relationships-application.md`. This shared reference applies to both quick and systematic workflows, in addition to their depth-specific references. Also read its application protocol when the user pastes a method-application prompt, even if no page is requested.
 
-For a new systematic PDF overview, read `references/source-heading-index.md` and build its reviewed original-heading index before writing display citations. Recheck every existing citation when regenerating an older PDF page. The title path and physical PDF range must agree with the original section; an unnumbered conclusion remains unnumbered. `source_map.json` proving that a page exists is not proof that a claimed heading or conclusion is correct.
+For a new systematic PDF overview, read `references/source-heading-index.md` and build its reviewed original-heading index before writing display citations. When adopting an older PDF page, recheck citations against its reviewed heading index; purely visual regeneration may reuse unchanged, verified locators and evidence. Recheck affected citations when source text, locator data or input versions change. The title path and physical PDF range must agree with the original section; an unnumbered conclusion remains unnumbered. `source_map.json` proving that a page exists is not proof that a claimed heading or conclusion is correct.
 
 ## Reusable method library
 
@@ -27,21 +34,27 @@ For a new systematic PDF overview, read `references/source-heading-index.md` and
 
 For every **new systematic overview**, read `references/action-rule-ledger.md` before generating `decisionRules` or the whole-material graph. After each complete content unit, save the reviewed source IDs and all candidate condition → action → reason rules to `<topic>.learnkb/action-rule-ledger.json`; continue until every unit has a reviewed or reasoned no-rules entry. Keep distinct prerequisites, exceptions, failure branches and stopping conditions. Complete the candidate dispositions, retain one primary candidate per visible rule card, then map every card to `methodology.nodes[].methodIds` or a reasoned independent rule. Re-read the original for omissions before finalizing. New systematic deliveries fail without this ledger; a missing ledger is not evidence that the material contains no rules. Quick mode keeps its existing lighter scope. Existing pages may be re-delivered with `finalize.py --legacy-rule-ledger`, but that flag is never for new material processing.
 
-Check the **framework-only** relation graph using the actual visible framework-to-framework edges. Framework-to-rule edges do not appear in that tab. Record genuinely independent frameworks or unsupported relationships with reasons in the ledger; never invent an edge to satisfy a gate. Node details automatically expand associated rule cards from `methodIds` while the existing cards and graph layout remain in place.
+Check the **framework-only** mind map using the actual framework-to-framework edges. Framework-to-rule edges do not appear in that tab. Record frameworks without supported displayed links, or unsupported relationship types, with source-reviewed reasons in the ledger; never invent an edge to satisfy a gate. The framework cards remain the default view. Methodology graph node details still expand associated rule cards from `methodIds`.
 
 For new systematic overviews, finish the v2 ledger's `relationReview` for both visible graphs. Review each supported relation type against the original, map actual edge IDs, and explain unsupported types; zero edges of a type is valid when the material gives no basis. Check whether a straight-looking methodology hides parallel paths, conditional alternatives, comparisons, prerequisites or evidence-driven revision. Follow `references/whole-material-methodology.md` and `references/language-relationships-application.md` for edge meaning and evidence limits. The number shown on a framework card and its graph node must come from the same `sourceOrder`, even when layout reorders nodes.
 
+### Independent second-pass content review
+
+Every new `systematic` overview must also read `references/content-review-schema.md` and create `<topic>.learnkb/content-review.json`. This is a source-first second pass: reread every covered source block, then review every visible content unit, summary claim and action rule with exact text or hashed visual evidence. Search closed lists and numbered material explicitly, recording each item's retained, merged or excluded destination. Run `scripts/content_review.py` before `finalize.py`; stale inputs, incomplete claim/rule rows, wrong-unit evidence, unmapped claims or shortened enumerated lists block publication. Do not generate review rows from the finished page or refresh only the fingerprints. The checker validates traceability and freshness, not semantic truth or mathematical completeness; keep the reviewer's reasoning in `findings`/`note` and state the remaining boundary.
+
 ### Delivery and visual contract
 
-Read `references/diagram-design-and-delivery.md` before generating an overview. Core frameworks opens with cards and offers a separate framework-only relationship map. Action rules contains the complete whole-material methodology and its application button. Never move the whole methodology into Core frameworks or replace its cards. Use the bundled diagram studio; it measures card heights, allocates only needed columns, keeps edge conditions on node chips and offers Fit width, Overview, zoom and fullscreen. Do not paginate the graph or draw custom per-material HTML.
+Read `references/diagram-design-and-delivery.md` and `references/visual-system.md` before generating an overview. Core frameworks opens with cards and switches to one collapsible, framework-only relationship mind map. Keep the original framework relations, their directions and evidence labels, including cross-links and disconnected components; every visible node and relation has a hover or keyboard-focus explanation. The mind map offers search, collapse/expand all, zoom, fit width and viewport-filling fullscreen. Action rules retains its cards, application button and one whole-material methodology flowchart. Preserve conditional, parallel, feedback and non-sequential relation meanings rather than inventing a step order. Use the bundled renderer; do not draw custom per-material HTML.
 
-The bundled studio briefly draws wires on first view, then rests as a static map. Selecting a node gives its active links one short directional cue; there is no perpetual flow. All relationship lines stay solid. Colour and labels distinguish material evidence, inference and feedback. Relation chips must not hide essential text with single-line ellipsis; wrapping changes card height, so preserve measured rows and arrow geometry. `mount()` returns a `refresh()` hook. If you modify `templates/graph-studio.js` or `templates/graph-studio.css`, keep the hidden-panel guard, static rebuild state, reduced-motion behavior and host refresh call described in the "Wire motion and state" section of the reference.
+For the **framework** mind map, lay out connected groups compactly and put frameworks with no recorded framework-to-framework edges in a responsive grid below them. Do not allocate a full-height island to every unlinked card. This is a display rule, not permission to omit nodes, invent edges or bypass the systematic relation ledger. Label the latter section “暂未建立连线” / “No links recorded yet”; absence in the current graph does not prove conceptual independence in the source. Graph roots are layout anchors, not new knowledge types or source claims. Preserve every card's `sourceOrder`, ID, source and meaning. Measure actual node heights after font loading and wrap labels using the display font. Keep genuine gaps in each labeled wire, route other wires around labels/cards/fold controls, and retain cross-links/cycles on Expand all. Search exposes every match; node selection highlights direct neighbors and edge selection highlights its exact endpoints. Use the shared `framework-routing.js` and `relationship-mindmap.js`, never a per-book HTML patch. Run the actual framework renderer tests as well as methodology tests; mocked mount tests alone do not check its layout.
 
-Keep long graph hover explanations scrollable. In the framework graph, wheel input over an overflowing relation list must scroll that inner list first, then pass any remaining movement to the outer hover panel; do not remove either scrollbar or allow the background page to move while reading the panel. Verify the framework and methodology hover panels independently.
+The **methodology** studio briefly draws wires on first view, then rests as a static map. Selecting a node gives its active links one short directional cue; there is no perpetual flow. Its default wires are straight or orthogonal, with relationship labels inserted into reserved slots on clear straight segments; both the wire and its selected direction cue leave the same gap, and no other wire crosses the label. Measure Chinese and English text, then widen or reroute crowded corridors; node cards show number, type, title and a short summary without repeating outgoing relationships. Keep full endpoint names, reasoning and sources in hover/focus details and the complete structure. Use plain relationship display names while retaining canonical enums and evidence. Details use language-appropriate colons, stacked field headings and parentheses around relationship metadata; read the display-name contract in `references/language-relationships-application.md`. Its lines stay solid, with colour and labels distinguishing evidence, inference and feedback. The **framework** mind map uses solid material links and dashed inference links, both labeled; its fold controls hide descendants but must never delete canonical relations. Both renderers return `refresh()`. If you modify either renderer, verify panel return, all three themes, fullscreen, focus/hover, and that expand-all draws every source edge.
 
-For every new overview, finish with `python scripts/finalize.py page.json --knowledge-base topic.learnkb --output-dir delivery --name topic-learning`. This binds canonical data, derives readable method files, runs coverage/static gates and packages all deliverables. Missing `methods.json` or `methodology.json` is a blocking content gap; author and verify it rather than bypassing the gate. An unsupported methodology uses the documented `not-applicable` structure, never an invented workflow. Return links to HTML, ZIP and the exported methodology.md. Low-level render() is not a delivery workflow. `render_page.py --legacy` is only for explicitly requested old-page re-rendering, never for a new overview.
+Keep long hover explanations readable and scrollable. Wheel input inside a floating explanation remains inside it, including at its top and bottom; an inner list may pass remaining distance to the floating card, but never to the graph or page. The reader moves the pointer outside the card to scroll the surrounding view. Fullscreen keeps the page behind it still. The framework mind map shows source-grounded node and edge explanations on hover and keyboard focus, without a persistent detail panel; its complete relation list remains a separate disclosure. Verify the framework and methodology hover panels independently, including tooltips in fullscreen.
 
-For every new overview, also read `references/whole-material-methodology.md`. Synthesize the entire material's central problem, goal and coherent reasoning/application structure. Save the explicitly labeled analytical layer as `methodology.json`; the finalizer derives `methodology.md` and binds the page. The whole-material view belongs in Action rules and is the default application choice, including justified handoffs, decisions and feedback. Core frameworks remains cards-first with its own framework relationships. Do not paginate either graph or force a fixed number of steps. Causal or hierarchical material remains non-procedural when appropriate. Original material cards stay in methods.json; synthesis never silently becomes an author's stated method.
+For every new overview, finish with `python scripts/finalize.py page.json --knowledge-base topic.learnkb --output-dir delivery --name topic-learning`. This binds canonical data, derives readable method files, runs coverage/content/static gates and packages all deliverables. Missing `methods.json`, `methodology.json` or (for new systematic work) `content-review.json` is a blocking content gap; author and verify it rather than bypassing the gate. An unsupported methodology uses the documented `not-applicable` structure, never an invented workflow. The initial manifest is deliberately `static-only` with `visualReview: not-run`; it must not be called visual acceptance. Return links to HTML, ZIP and the exported methodology.md. Low-level render() is not a delivery workflow. `render_page.py --legacy` is only for explicitly requested old-page re-rendering, never for a new overview.
+
+For every new overview, also read `references/whole-material-methodology.md`. Synthesize the material's central problem, goal and coherent reasoning/application structure. In quick mode, integrate only the reviewed core argument and its essential conditions; structural coverage does not establish exhaustive source-content coverage. Save the explicitly labeled analytical layer as `methodology.json`; the finalizer derives `methodology.md` and binds the page. The whole-material view belongs in Action rules and is the default application choice, including justified handoffs, decisions and feedback. Core frameworks remains cards-first with its own framework relationships. Do not paginate either graph or force a fixed number of steps. Causal or hierarchical material remains non-procedural when appropriate. Original material cards stay in methods.json; synthesis never silently becomes an author's stated method.
 
 ### Methodology files are mandatory, and nothing extra is generated
 
@@ -50,7 +63,7 @@ After parsing material, `methodology.json` **must** exist and `methodology.md` *
 - Before rendering any page, check that `methodology.json` exists in the knowledge base and that `finalize.py` produced `methodology.md`. Verify both file existence and structure (status, nodes, edges, sources).
 - Page methodology cards and graph nodes are read from that file only. Never re-author them inline in the page.
 - If methodology generation fails, **report the concrete reason and stop** — never silently skip it, never render a page without the methodology module, and never substitute an invented workflow. An unsupported methodology uses the documented `not-applicable` structure with an explanation.
-- Generate only what was asked for. Do not produce an RSI page, a second preview page, or any extra HTML "just in case". If the user asks for Rubin only, deliver Rubin only; if the user asks for the skill package only, deliver the package only.
+- Generate only the materials and deliverables the user requested. A request for a skill package produces that package; do not add unrelated learning pages or extra previews.
 
 Content-guide statements must disclose their actual source on hover, keyboard focus and via a clickable source disclosure after every unit switch. Add verified `sourceDetails` for finer pages; otherwise explicitly show the unit/conclusion range. See the same reference for the schema and fallback behavior.
 
@@ -66,22 +79,27 @@ When the user wants to accumulate, find, compare or combine methods across mater
 
 ## 资产路由
 
-先按学习深度分流：`quick` 只读取 `references/learning-depth-modes.md`、`references/quick-workflow.md` 和 `references/content-contract.md`，按快速工作流执行；本文件下文的全量单元写作、题库预建、双向总结账本、逐块审计和系统质量档案仅适用于 `systematic`。共同的来源准确性、安全、固定界面、页面身份和交付验证对两种模式都生效。快速模式追问或测验时再按需读取对应协议，不能预先加载并执行整套系统流程。
+### 修改已有学习页
 
-- 开始解析材料前，完整读取 `references/learning-depth-modes.md`，只询问一次“快速了解”或“系统学习”；此时不得询问职业或兴趣。
+用户要求调整已有页面的外观或交互时，先读取该项目的已确认偏好、原始 `page.json` 与知识库；读取 `references/visual-system.md`、`references/diagram-design-and-delivery.md`，涉及主题时再读 `templates/themes/README.md`。修改可复用模板并重新生成，保留 `pageId`、内容与方法 ID、出处，以及笔记/错题/个人设置的存储关联。纯外观调整沿用已经核验的内容和出处，无须重新提取材料或重新询问学习深度；内容、出处或输入版本变化时仍执行对应复核门禁。液态玻璃与直线关系图是当前可调整的默认设计，用户本次明确偏好优先。此入口是技能工作流程，不在网页新增按钮。
+
+先按学习深度分流：`quick` 按 `references/learning-depth-modes.md`、`references/quick-workflow.md` 和 `references/content-contract.md` 执行轻量提炼。两种模式生成新 overview 时共同读取语言/关系、方法库、整体方法论、图表交付与视觉规范；这些共同要求不因 quick 分流而省略。全量单元写作、题库预建、双向总结账本、逐块审计、行动规则账本、独立第二遍内容复核和系统质量档案仅适用于 `systematic`。快速模式使用 `quick-audit.json`，仅提炼有依据的核心方法，并经同一 `finalize.py` 交付。追问或测验时再按需读取对应协议，不能预先加载并执行整套系统流程。
+
+- 开始解析材料前，完整读取 `references/learning-depth-modes.md`。用户已明确学习深度时直接采用；未说明时只询问一次“快速了解”或“系统学习”，此时不得询问职业或兴趣。
 - 首次处理材料时，运行 `scripts/extract.py`，再建立 `<主题>.learnkb/`。
 - 更新已有知识库时，完整读取 `references/incremental-update-schema.md`，先生成增量计划，再只重建受影响单元与派生索引。
-- 生成学习页时，完整读取 `references/content-contract.md`，生成 `page.json` 后运行 `scripts/render_page.py`。
+- 生成学习页时，完整读取 `references/content-contract.md`；新 overview 先完成规范绑定与对应深度核查，再由 `scripts/finalize.py` 交付。topic/unit 页使用 `scripts/render_page.py`。
 - 系统学习且输入是书籍或 `sourceType=book` 时，额外完整读取 `references/book-quality-profile.md`。
 - 系统学习且输入是 PPT/PPTX、文档、网页、Markdown/文本或多材料（`slides/document/web/text/mixed`）时，额外完整读取 `references/material-quality-profile.md`。
 - 回答材料追问时，完整读取 `references/answer-protocol.md`。
 - 系统学习建立覆盖审计时，完整读取 `references/coverage-audit-schema.md`，同时生成 `coverage-audit.md` 与 `coverage-audit.json`；快速模式只使用 `quick-workflow.md` 的简要审计。
-- 新系统学习 PDF 须完整读取 `references/source-heading-index.md`，建立原文章节标题索引并核对所有展示出处；更新旧页面时也要重核已有出处。
+- 新系统学习 PDF 须完整读取 `references/source-heading-index.md`，建立原文章节标题索引并核对所有展示出处；采用旧页面时也须核对，纯外观调整可复用未变更的已核验出处，来源或内容变化时重核受影响项。
 - 系统学习检查内容总结是否缺失时，完整读取 `references/summary-coverage-schema.md`，生成 `summary-ledger.json` 并执行双向覆盖门禁；快速模式不加载该协议。
+- 新系统学习完成摘要账本后，完整读取 `references/content-review-schema.md`，按来源先于总结的顺序建立 `content-review.json`；运行 `scripts/content_review.py`，不能由页面成品自动填充复核记录。
 - 系统学习建立题库或快速模式真正启动学习自检时，完整读取 `references/question-bank-routing.md`；快速页面生成阶段不预建全量题库。
 - 主题/单元页需要组件字段时，按需读取 `templates/components.md`。
 - 调整页面主题时，读取 `templates/themes/README.md`。
-- 需要 JSON 结构参考时，读取 `examples/overview-content.json`。
+- 新页面的 JSON 结构参考使用 `examples/overview-methods-content.json`（英文）或 `examples/overview-current-zh.json`（中文），两者都有规范方法库与整体结构。`scripts/tests/fixtures/compat-4.2.json` 仅用于旧结构兼容检查，不能作为新页面起点。
 
 ## 核心原则
 
@@ -102,6 +120,8 @@ When the user wants to accumulate, find, compare or combine methods across mater
 - **快速了解**（`quick`）：完整提取原文并扫描结构，提炼核心导读；使用 `quick-audit.json` 做范围说明与展示出处核查，不建全量总结账本和题库，详见快速工作流。
 - **系统学习**（`systematic`）：沿用全量高密度流程，尽可能全面保留框架、术语、论证、案例、规则和自检考点。
 
+“系统学习 / 全部 / 全量覆盖”均按 `systematic` 执行，不得自行降为快速导读。完成度由来源块、结构、候选知识点及出处的双向核对证明；框架数、方法卡数、页面长度和通过脚本校验都不能单独证明全量覆盖。`quick` 的审计结论不得作为 `systematic` 的交付结论。
+
 若用户没有选择，默认推荐系统学习并等待选择；职业和兴趣仍只在 HTML 生成后、用户首次打开页面时由“小巴”引导询问。
 
 ## 阶段一：材料到知识库
@@ -121,7 +141,7 @@ python3 scripts/extract.py <一个或多个材料/目录/通配符> \
 
 1. 先运行 `python3 scripts/extract.py --check`，记录本地解析能力；不得默认安装依赖。
 2. 在 macOS 上，若 `pdftotext`、PyPDF2、pdfminer 均不可用，提取器会自动尝试系统 PDFKit（通过 Swift 调用），用于**有文字层**的 PDF；该路径不安装 Python 包。
-3. PDFKit 也读不到文字时，说明材料可能是扫描件或图片型 PDF。此时先在 `coverage-audit.md` 标记“无文字层/待OCR”，再在用户已明确要求完整处理或同意 OCR 的前提下使用视觉 OCR。OCR 结果必须单独标记，不得冒充原始文字层。
+3. 无文字层、扫描页或图中关键文字无法提取时，需要文字识别能力，不等于必须安装 OCR 软件。已有 OCR 或可用的模型视觉都可采用。先把待读页面转成模型实际可见的图片，逐页保存识别文本、PDF 物理页、原图/文件指纹、识别方式及未读清处，再进入来源映射与学习流程。仅说模型有视觉能力、只读抽样页，或凭记忆补写不算完成识别。现有环境若不能提供页面图片或可靠转录，说明具体缺失能力；默认不安装依赖，也不声称完成全量覆盖。用户已要求完整学习扫描材料时，可执行必要识别，不重复询问学习深度。
 4. 所有能够保留物理分页的 PDF 提取路径（包括 PDFKit、PyPDF2、pdftotext、pdfminer）都必须在 `full_text.md` 中写入 `<!-- PDF 页 N -->` 标记，并同步写入 `metadata.json` 与 `source_map.json`。若提取器未保留物理分页，必须记录 `page_mapping_complete=false`，禁止声称精确 PDF 页码。
 
 - 文字材料使用 `--mode text`；表格、公式、代码密集 PDF 使用 `--mode technical`。
@@ -140,6 +160,7 @@ python3 scripts/extract.py <一个或多个材料/目录/通配符> \
 3. **来源配比**：课程/正文材料是框架、内容导学和术语的主要事实来源；考纲只用于标记优先级，笔记用于交叉核对，样题和真题用于提炼命题方式、易混边界与自检考点。完整保留可识别的原题、选项、官方答案、解析和精确出处到内部 `question-bank.json`，但不得把题库平铺到 HTML。不得用最短、最结构化的考纲或笔记替代课程内容。
 4. **交叉材料映射**：每个内容单元至少引用一份课程/正文材料；每个核心框架、术语、规则和自检考点都要写清来自哪一份材料及内部定位。只有材料确实未覆盖时，才可只引用题库或笔记，并须如实标注。
 5. **生成前统计**：在 `coverage-audit.md` 汇总输入文件数、实际覆盖文件数、学习单元数、框架数、术语数、规则数和自检考点数，并逐项说明哪些来自课程、笔记、考纲、样题和真题。
+6. **候选项复核**：按材料结构逐块回扫框架、方法、流程、判断准则、图表结论、反例、限制条件和练习；逐项标明进入框架卡、方法卡、行动规则、测验考点或明确排除的理由。方法卡数不设目标值，不能因生成若干张卡就停止检索。先完成候选清单与去向，再写整份材料的方法论综合。
 
 ### 2. 划分系统学习单元
 
@@ -167,6 +188,7 @@ python3 scripts/extract.py <一个或多个材料/目录/通配符> \
 - 不设置预设 token、框架数、术语数、行动规则数、自检考点数、结论组数或分点数上限；以材料中实际可提炼的独立信息为边界。短材料或无信息页/段可自然较短，但必须如实说明，禁止为了凑长度编造，也禁止以“内容够多”为理由提前停止。
 - 优先保留材料明确命名的框架、阶段、分类、维度、表图结论、检查表和判断准则；写明要素、适用条件、边界与精确出处，而非只列名。
 - overview 必须覆盖全量材料：书籍覆盖章节、序言/附录关键内容；PPT 覆盖全部幻灯片与关键图表；文档/网页/文本覆盖全部标题、逻辑块、表图/代码/脚注；多材料覆盖每个文件及其跨文件关系。必须生成 `coverage-audit.md` 证明范围覆盖与事实性缺口。
+- 全量审计必须区分“已顺序读取”“已核验视觉或 OCR 内容”“已映射到知识点”“无可提炼学习内容”。任何未读取、未解析或无法核实的块不得标成已覆盖；如关键范围仍有缺口，应补读或明确暂停全量交付。详见 `references/coverage-audit-schema.md` 与对应材料质量档案。
 
 ## 阶段二：知识库到学习页
 
@@ -182,15 +204,24 @@ python3 scripts/extract.py <一个或多个材料/目录/通配符> \
 
 ### 2. 生成与渲染
 
-完整读取内容契约后生成 UTF-8 `page.json`。overview 模块顺序固定为：核心框架、内容导学、术语大全、行动规则、学习自检、我的笔记。框架和术语必须携带首次出现单元与连续 `sourceOrder`，固定渲染器按原材料首次出现顺序输出。学习自检模块必须是动态测验配置器，不得把预生成题目平铺在页面上。系统学习执行完整覆盖门禁；快速了解先执行 `prepare_quick.py`。两种模式均须通过渲染器校验：
+完整读取内容契约后生成 UTF-8 `page.json`。overview 模块顺序固定为：核心框架、内容导学、术语大全、行动规则、学习自检、我的笔记。框架和术语必须携带首次出现单元与连续 `sourceOrder`，固定渲染器按原材料首次出现顺序输出。学习自检模块必须是动态测验配置器，不得把预生成题目平铺在页面上。系统学习执行完整覆盖门禁；快速了解按 `quick-workflow.md` 先绑定规范方法数据，再核查最终展示出处并执行 `prepare_quick.py`。新 overview 统一由下文 `finalize.py` 交付；以下是针对已绑定数据的独立预检命令，不能代替完整交付：
 
 ```bash
 python3 scripts/verify_coverage.py page.json --knowledge-base <主题>.learnkb
 python3 scripts/verify_relations.py page.json --knowledge-base <主题>.learnkb
-python3 scripts/render_page.py page.json --output <输出>.html --check-only
+python3 scripts/render_page.py page.json --knowledge-base <主题>.learnkb --output <输出>.html --check-only
 ```
 
 新系统学习 PDF 的出处门禁还须加 `--require-heading-index`。`finalize.py` 对此类交付自动执行同一检查；它核对标题原文片段、标题路径和页码归属，但不能代替对每项论断的原文复核。对每个关键结论仍须读回所引段落；无法核实的编号或标题不得猜测。
+
+新系统学习还必须通过内容复核门禁：
+
+```bash
+python3 scripts/content_review.py content-review.json \
+  --page page.json --knowledge-base <主题>.learnkb
+```
+
+`content-review.json` 的哈希只绑定复核记录与输入版本，不能证明语义正确。新交付的 manifest 会明确写出 `semanticReview: recorded-not-machine-proven`、`layoutCheck: not-run` 和 `visualReview: not-run`。
 
 新 overview 使用统一交付入口（自动绑定、导出方法论、校验、生成 HTML/Markdown 与 ZIP）：
 
@@ -207,7 +238,7 @@ python3 scripts/render_page.py page.json \
   --markdown <材料名>-<模式>.md
 ```
 
-页面使用有设计感但适合长时间阅读的低饱和数字杂志式界面：桌面端保留封面式 Hero、模块目录与阅读区分栏、非对称知识卡片，窄屏自动切换为横向模块导航。颜色必须优先采用雾蓝、青灰、米白、暖褐、柔金等克制色系，避免荧光色、大面积高纯度色、刺眼明暗反差、硬黑粗边与发光阴影；通过版式、留白、字号层级、细线、轻质感和非对称构图建立设计感。现有三套主题必须同时改变主色、背景、导航、信号色和印刷质感，不能只替换浅色变量。页面固定提供主题切换、内容单元切换、出处显示、术语搜索、中英文术语解释、动态自检口令、错题导回与复测、一键本地笔记和“小巴”引导。每个内容单元提供“让 AI 详解本单元”按钮：悬浮或键盘聚焦时解释其用途，点击后复制包含核心内容、关键框架与材料出处的详解口令，并明确提示用户粘贴到当前材料对话；不得暗示网页内置在线聊天。自检支持综合全部、指定章节/单元、自定义要求，并可选择题量、难度与能力重点；点击后复制结构化口令，由对话中的 AI 基于当前材料知识库逐题测验。AI 必须在出题前静默读取 `question-bank.json`：范围内有可用原题时优先抽取原题，只有零散或不完整题目时采用“原题 + 生成题”，没有题库时再按自检考点动态生成；不得向用户展示识别结论、置信度或模式名称。测验结束时 AI 必须输出可导入页面的标准错题记录。每份新生成的 HTML 首次打开必须显示“小巴”引导，职业和兴趣字段为空；读者画像与“已看过引导”状态必须按该 HTML 的页面数据独立保存在当前浏览器，禁止复用其他材料页面的画像或跳过状态。错题、笔记和主题也仅存当前浏览器本地存储，并支持 JSON 备份/导入；不得声称存在云同步。
+页面采用 `references/visual-system.md` 的明亮学术画册设计：紧凑标题、横向模块导航、错落卡片、占据主要视口的两张关系图和适度玻璃质感。固定提供海盐云纱、黑白水墨、竹月清三套主题，保留原字体；水墨用真实笔触与纸面质感，避免只做黑白色块。三个主题的背景、卡片、连线、浮片和控件同步换色，深色区域用浅色文字。提供动效开关并尊重系统减少动态效果；关闭后连线仍完整可见。页面固定提供主题切换、内容单元切换、出处显示、术语搜索、中英文术语解释、动态自检口令、错题导回与复测、一键本地笔记和“小巴”引导。每个内容单元提供“让 AI 详解本单元”按钮：悬浮或键盘聚焦时解释其用途，点击后复制包含核心内容、关键框架与材料出处的详解口令，并明确提示用户粘贴到当前材料对话；不得暗示网页内置在线聊天。自检支持综合全部、指定章节/单元、自定义要求，并可选择题量、难度与能力重点；点击后复制结构化口令，由对话中的 AI 基于当前材料知识库逐题测验。AI 必须在出题前静默读取 `question-bank.json`：范围内有可用原题时优先抽取原题，只有零散或不完整题目时采用“原题 + 生成题”，没有题库时再按自检考点动态生成；不得向用户展示识别结论、置信度或模式名称。测验结束时 AI 必须输出可导入页面的标准错题记录。每份新生成的 HTML 首次打开必须显示“小巴”引导，职业和兴趣字段为空；读者画像与“已看过引导”状态必须按该 HTML 的页面数据独立保存在当前浏览器，禁止复用其他材料页面的画像或跳过状态。错题、笔记和主题也仅存当前浏览器本地存储，并支持 JSON 备份/导入；不得声称存在云同步。
 
 ### 3. 小巴追问协议
 
@@ -226,6 +257,7 @@ python3 scripts/render_page.py page.json \
 ```bash
 python3 scripts/verify_relations.py page.json --knowledge-base <主题>.learnkb
 python3 scripts/verify_static.py <输出>.html
+node scripts/verify-mindmap-data.cjs
 ```
 
 `verify_relations.py` 是**断言式**关系图门禁，必须单独跑，不能指望渲染器顺带发现。它按页面真实可见的“框架→框架”子图检查空图和孤立框架；“框架→规则”不会被误算成可见连线。新系统学习页由 `action-rule-ledger.json` 记录合理独立的框架或确实无据的关系，并由 `finalize.py` 检查。`--allow-empty` 仅供未带账本的旧页面人工复核，不能替代新页面的有据说明。规则数量与弱解释仍会提示复核；参见 `references/relation-gate.md`。
@@ -236,17 +268,29 @@ python3 scripts/verify_static.py <输出>.html
 node scripts/verify-page.js <输出>.html
 ```
 
+响应式布局和全屏几何可在获准浏览器环境运行：
+
+```bash
+node scripts/verify-layout.cjs <输出>.html <新报告>.json
+python3 scripts/record_layout_review.py <交付>.delivery.json <新报告>.json
+```
+
+布局脚本只生成与当前 HTML SHA-256 绑定的自动几何证据，检查三主题、六模块、390/819/820/821/980/981/1024/1039/1040/1041/1440/2105 宽度、调整大小返回及两张关系图全屏前后状态。它不绕过浏览器权限，不替代人工查看截图；浏览器不可用时保留 `static-only` 结果，不声称视觉验收通过。
+
 关系图连线动效的专项回归（静态 + 真机）：
 
 ```bash
 node scripts/verify-diagram-motion.cjs <输出>.html              # 结构、主题纪律、动效契约
+node --test scripts/tests/test-scroll-chain.cjs                # 浮片上下边界、内部列表、横向及缩放手势
+node scripts/test-graph-hover-wheel.cjs                       # 两图接入同一滚轮路由
 node scripts/verify-diagram-motion-live.cjs <输出>.html         # 首次绘入、切板块返回、三套主题
 node scripts/verify-diagram-motion-live.cjs <输出>.html --rm    # reduced-motion 静止终态
+node scripts/verify-methodology-page.cjs <输出>.html            # 卡片、思维导图全边与全屏、方法论模块
 ```
 
-`--live` 需要本机 Edge 或 Chrome（容器/CI 用 `BROWSER_PATH` 指定），只依赖 `ws`；加 `--shots <目录>` 可留现场截图。改动 `templates/graph-studio.*`、`templates/extensions.*` 或 `templates/methodology.*` 后必须重跑，其中「切板块返回后连线仍可见」是最容易回退的一项。
+`verify-diagram-motion-live.cjs` 需要本机 Edge 或 Chrome（容器/CI 用 `BROWSER_PATH` 指定），只依赖 `ws`；加 `--shots <目录>` 可留现场截图。`verify-methodology-page.cjs` 需要已有的 Playwright。改动 `templates/graph-studio.*`、`templates/relationship-mindmap.*`、`templates/extensions.*`、`templates/methodology.*`、`templates/visual-*`、`templates/liquid-finish.css` 或 `templates/scroll-chain.js` 后，在允许使用的浏览器能力中复验，重点检查展开全部后的节点/连线数量、切板块返回、三套新主题、全屏、动效开关与浮片边界滚轮隔离。
 
-关系图文字或布局改动后，还要在真实浏览器检查长中文关系名称、多条出边、窄屏和浏览器文字放大：卡片内的关系名称可换行且可完整读取；高度增长后下排卡片与箭头不得重叠；首次“适合宽度”视图不应丢失两侧节点。“查看全图”可缩小长图，不必保证每个字仍清晰。无法运行浏览器时只报告静态检查，不宣称视觉验收通过。
+关系图文字或布局改动后，还要在真实浏览器检查长中文关系名称、多条出边、交叉线、独立分支、窄屏和浏览器文字放大。框架思维导图展开全部后，节点数和连线数应分别等于原始框架与框架间关系数；悬浮解释、折叠再展开、深色区域白字、三套主题及占满视口的全屏都要核对。方法论关系标签应在线段中央，支持点击与键盘详情，节点卡片不重复出边列表；长图的 Overview 缩小视图不要求每个字仍清晰。规则格式化改动后运行 `python3 -m unittest discover -s scripts/tests -p test_features.py`，检查中英文 HTML/Markdown 不重复“当/When”，且原始条件未变。关系标签或详情改动后，运行 `node --test scripts/tests/test-graph-labels.cjs scripts/tests/test-methodology-language.cjs`，检查中英文长标签、槽位避让、选择与重建状态、标点和原始出处。这里使用内存 DOM 与确定性字体度量，不能代替真实浏览器的视觉检查。无法运行浏览器时分别报告已运行的静态/行为检查，不宣称视觉验收通过。
 
 浏览器验证未运行时如实说明；不得声称已通过。最终交付 HTML、同步 Markdown 和需要用户查看的知识库文件。
 
@@ -268,6 +312,7 @@ python3 scripts/plan_incremental_update.py \
 ## 系统学习质量门禁
 
 - 框架必须能改变判断或行动，并明确来自材料；框架清单必须完整覆盖当前全部材料可提炼的独立框架，不设数量上限。
+- 方法卡、整份方法论节点及框架卡分别承担不同作用，不得用四张或其他固定数量的方法卡替代逐块候选项盘点。原文没有可操作方法时如实标明，不能凑数；原文有多个独立方法时保留其适用条件、步骤、检验标准、局限与出处。
 - 内容单元必须覆盖完整材料、保留原有顺序或跨文件关系，并用独立出处支撑关键结论；不得只处理开头、摘要或热门部分。
 - 核心框架和术语大全必须按材料首次实质介绍的顺序排列；分类仅作为标签，不能打乱学习顺序。
 - `summary-ledger.json` 必须完成“材料主张→页面总结”和“页面总结→材料主张”双向映射；有未映射主张、无依据总结项或无理由排除项时不得渲染。

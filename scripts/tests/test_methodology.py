@@ -12,8 +12,8 @@ from render_page import validate as validate_page, render_frameworks
 class WholeMethodologyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.page=json.loads((ROOT/'examples/overview-whole-methodology.json').read_text(encoding='utf-8'))
-        cls.kb=ROOT/'examples/rsi-methodology.learnkb'
+        cls.page=json.loads((ROOT/'examples/overview-systematic-demo.json').read_text(encoding='utf-8'))
+        cls.kb=ROOT/'examples/systematic-demo.learnkb'
 
     def test_real_evidence_and_complete_structure(self):
         validate(self.page['methodology'],self.page,self.kb)

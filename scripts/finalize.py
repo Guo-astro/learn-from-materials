@@ -8,10 +8,12 @@ import argparse
 import hashlib
 import json
 import shutil
+import time
 import uuid
 import zipfile
 from pathlib import Path
 
+from source_presentation import validate_labels
 from delivery import check_canonical, export_readable, verify_readable
 from methods import bind, read, validate_library
 from methodology import validate as validate_model, markdown
@@ -20,6 +22,28 @@ from verify_coverage import verify
 from verify_static import verify as verify_static
 from verify_relations import check_page as check_relations
 from action_rules import load_and_validate
+from content_review import validate_file as validate_content_review
+
+
+def publish_move(source, destination, stage, output_dir):
+    """Move a validated artifact within the delivery directory, without overwrite.
+
+    Windows scanners can briefly lock a newly written directory. Retry only
+    that reported lock/access condition, at most five attempts over one second.
+    """
+    source, destination = Path(source), Path(destination)
+    if not source.resolve().is_relative_to(Path(stage).resolve()) or not destination.resolve().is_relative_to(Path(output_dir).resolve()):
+        raise ValueError('Delivery move escaped its staging or output directory')
+    for attempt in range(5):
+        if destination.exists():
+            raise ValueError('A delivery target already exists; choose another name.')
+        try:
+            source.rename(destination)
+            return
+        except PermissionError as error:
+            if getattr(error, 'winerror', None) not in (5, 32) or attempt == 4:
+                raise
+            time.sleep(.1 * (attempt + 1))
 
 
 def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
@@ -36,10 +60,22 @@ def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
     validate_model(model, page, kb)
     page['methodology'] = model
     validate_page(page)
+    label_errors = []
+    validate_labels(page, label_errors, require_complete=not legacy_rule_ledger)
+    if label_errors:
+        raise ValueError("Source presentation validation failed: " + "; ".join(label_errors))
     exports = check_canonical(page, kb)
     ledger = None
+    content_review = None
     if page['meta']['learningDepth'] == 'systematic' and not legacy_rule_ledger:
         ledger = load_and_validate(page, kb)
+        review_path = kb / 'content-review.json'
+        if not review_path.is_file():
+            raise ValueError('content-review.json is required for new systematic deliveries')
+        review_errors = validate_content_review(review_path, page, kb)
+        if review_errors:
+            raise ValueError('Content review validation failed: ' + '; '.join(review_errors))
+        content_review = json.loads(review_path.read_text(encoding='utf-8'))
     target_kb = out / (name + '.learnkb')
     if target_kb == kb or target_kb.is_relative_to(kb):
         raise ValueError('Choose an output directory outside the source knowledge base')
@@ -56,17 +92,21 @@ def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
     staged = {key: stage / path.name for key, path in targets.items()}
     published = []
     try:
-        shutil.copytree(kb, staged_kb, ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+        # Extraction caches are rebuildable working data, not provenance.
+        # Their digest filenames plus a staging path can also exceed Windows
+        # path limits. Keep them in the source KB, outside the delivery ZIP.
+        shutil.copytree(kb, staged_kb, ignore=shutil.ignore_patterns('__pycache__','*.pyc','.extraction-cache'))
         export_readable(staged_kb, exports)
         page['meta']['knowledgeBase'] = target_kb.name + '/INDEX.md'
         staged['page'].write_text(json.dumps(page,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         errors = verify(staged['page'], staged_kb,
-                        require_heading_index=page['meta']['learningDepth'] == 'systematic' and not legacy_rule_ledger)
+                        require_heading_index=page['meta']['learningDepth'] == 'systematic' and not legacy_rule_ledger,
+                        require_claim_mapping=page['meta']['learningDepth'] == 'systematic' and not legacy_rule_ledger)
         if errors:
             raise ValueError('Coverage validation failed: ' + '; '.join(errors))
         render(page, staged['html'], staged['markdown'])
         with staged['markdown'].open('a',encoding='utf-8') as f:
-            f.write('\n' + markdown(model))
+            f.write('\n' + markdown(model, source_labels=page.get('sourceLabels')))
         errors, warnings, _ = verify_static(staged['html'])
         if errors:
             raise ValueError('Static validation failed: ' + '; '.join(errors))
@@ -75,11 +115,17 @@ def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
         heading_file = staged_kb / 'source-heading-index.json'
         heading_entries = json.loads(heading_file.read_text(encoding='utf-8')).get('entries', []) if heading_file.is_file() else []
         visual_heading_count = sum(item.get('verification') == 'visual' for item in heading_entries if isinstance(item, dict))
-        manifest = {'skillVersion':'0.2.0','status':'complete','pageId':page['meta']['pageId'],
-            'checks':['canonical-evidence','coverage','snapshot-equality','derived-files','static-html','relations'] + (['action-rule-ledger'] if ledger else []) + (['pdf-heading-index'] if (staged_kb/'source-heading-index.json').is_file() else []),
+        # Content review cannot attest a render that does not yet exist. Browser
+        # geometry is recorded separately against this exact HTML hash.
+        en = page['meta'].get('language') == 'en'
+        manifest = {'skillVersion':'1.0','skillRevision':'release','status':'static-only','pageId':page['meta']['pageId'],
+            'checks':['canonical-evidence','coverage','snapshot-equality','derived-files','static-html','relations'] + (['action-rule-ledger','content-review'] if ledger else []) + (['pdf-heading-index'] if (staged_kb/'source-heading-index.json').is_file() else []),
             'relations':relation_report.as_dict(),
             'headingIndex':{'textEntries':len(heading_entries)-visual_heading_count,'visualEntries':visual_heading_count},
-            'visualReview':'not-performed-by-this-command','warnings':[*warnings,*relation_report.warnings] + (['PDF 标题索引含人工视觉核验条目，程序未验证其文字'] if visual_heading_count else []),
+            'contentValidation':'passed',
+            'semanticReview':'recorded-not-machine-proven' if content_review else 'not-recorded',
+            'layoutCheck':'not-run','visualReview':'not-run',
+            'warnings':[*warnings,*relation_report.warnings] + (['PDF headings include manual visual evidence; their text was not machine-verified' if en else 'PDF 标题索引含人工视觉核验条目，程序未验证其文字'] if visual_heading_count else []) + ['Browser visual checks were not run; this delivery passed static validation only' if en else '视觉检查未运行；此交付仅完成静态校验'],
             'files':[{'path':p.relative_to(stage).as_posix(),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]}
         staged['manifest'].write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         with zipfile.ZipFile(staged['archive'],'x',compression=zipfile.ZIP_DEFLATED) as archive:
@@ -89,7 +135,7 @@ def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
         if any(p.exists() for p in [target_kb, *targets.values()]):
             raise ValueError('A delivery target appeared during validation; choose another name.')
         for source, destination in [(staged_kb, target_kb), *[(staged[key], path) for key, path in targets.items()]]:
-            source.rename(destination)
+            publish_move(source, destination, stage, out)
             published.append(destination)
     except Exception:
         for path in reversed(published):
@@ -116,4 +162,7 @@ def main():
     except (OSError,ValueError,KeyError,TypeError) as exc:p.exit(2,str(exc)+'\n')
 
 
-if __name__=='__main__':main()
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
+    main()

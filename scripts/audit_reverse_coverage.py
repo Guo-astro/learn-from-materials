@@ -85,5 +85,7 @@ def main() -> None:
     raise SystemExit(0 if result["passed"] else 1)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
     main()

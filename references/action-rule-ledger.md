@@ -1,4 +1,4 @@
-# Action-rule ledger for new systematic overviews (v0.5.8-beta)
+# Action-rule ledger for new systematic overviews (v1.0)
 
 An action rule is a material-supported condition → action → reason relation. Capture prerequisites, exceptions and stop conditions separately when present. Do not turn the model's outside advice into a material fact. A material may have no action rules; record that finding instead of inventing cards.
 

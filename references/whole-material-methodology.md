@@ -1,4 +1,4 @@
-# Whole-material methodology (v0.5)
+# Whole-material methodology (v1.0.3)
 
 Read this for every new overview, in both learning depths. The goal is a coherent account of the entire material: its central problem, outcome, reasoning, decisions and justified feedback. Display it inside Action rules. Core frameworks defaults to cards with a separate framework relationship map. Read diagram-design-and-delivery.md for visual and final packaging requirements. Do not substitute a graph of loosely related framework cards, pagination, or a fixed eight-step recipe.
 
@@ -39,7 +39,7 @@ Constraint fields exactly: `text/evidence/source`. Coverage fields exactly: `uni
 
 For `not-applicable`, use structure `none`, empty entryNodes/mainPath/nodes/edges/constraints, and account for all units in coverage as context or out-of-scope with reasons. Explain the limitation in note, problem and outcome; do not manufacture a workflow.
 
-The optional overview field `methodology` embeds an exact validated snapshot. Older 4.2/4.3 JSON remains compatible; every NEW overview in v0.4 must produce the canonical file and bind it. The renderer rejects drift between the snapshot and file.
+The optional overview field `methodology` embeds an exact validated snapshot. Older 4.2/4.3 JSON remains compatible; every NEW overview must produce the canonical file and bind it. The renderer rejects drift between the snapshot and file.
 
 ```bash
 python3 scripts/methodology.py validate --model topic.learnkb/methodology.json --page page-with-methods.json --knowledge-base topic.learnkb

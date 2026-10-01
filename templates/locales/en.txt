@@ -4,9 +4,10 @@
 打开小巴新手引导并修改画像 => Open the learning guide and edit your profile
 小巴导读 => Learning guide
 页面主题 => Page theme
-雾蓝书房 => Mist-blue study
-灰白画册 => White gallery
-深海夜读 => Deep-sea night
+海盐云纱 => Sea Salt
+黑白水墨 => Ink Wash
+竹月清 => Bamboo Moon
+动效：开 => Motion: on
 青灰宣纸 => Sage paper
 暖褐画报 => Warm editorial
 石墨书页 => Graphite pages

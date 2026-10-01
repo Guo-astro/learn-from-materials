@@ -31,11 +31,14 @@
     const zoomOut=make('button','−'),zoomIn=make('button','+'),fit=make('button',say('适合宽度','Fit width')),overview=make('button',say('查看全图','Overview')),full=make('button',say('全屏查看','Full screen'));
     zoomOut.setAttribute('aria-label',say('缩小关系图','Zoom out'));zoomIn.setAttribute('aria-label',say('放大关系图','Zoom in'));
     const scaleLabel=make('output','100%');[zoomOut,zoomIn,fit,overview,full].forEach(b=>b.type='button');tools.append(zoomOut,scaleLabel,zoomIn,fit,overview,full);
-    const legend=make('p',say('实线：材料依据　蓝色：整合推断　金色：反馈 / 回路','Neutral: source evidence · Blue: inference · Gold: feedback'),'diagram-legend');toolbar.append(legend,tools);root.append(toolbar);
+    const legend=make('p',null,'diagram-legend');
+    [['source',say('材料依据','Source evidence')],['inference',say('整合推断','Inference')],['feedback',say('反馈 / 回路','Feedback')]].forEach(([kind,label])=>{const item=make('span',null,'diagram-legend-item');const swatch=make('i',null,'diagram-legend-swatch is-'+kind);swatch.setAttribute('aria-hidden','true');item.append(swatch,make('span',label));legend.append(item);});
+    toolbar.append(legend,tools);root.append(toolbar);
     // Safety net: an undeclared relationship set must say so out loud instead of looking like a bare node cloud.
     if(nodes.length>1&&!edges.length){const note=make('p',say('这份页面尚未声明节点之间的关系：下面只列出卡片，没有可展开的连线。这是关系图数据缺失，不是渲染故障。','No relationships were declared for this page: the cards below are listed without any connecting links. This is missing relationship data, not a rendering fault.'),'diagram-empty');note.setAttribute('role','status');root.append(note);}
     const viewport=make('div',null,'diagram-viewport');viewport.tabIndex=0;viewport.setAttribute('aria-label',say('关系图画布，可滚动及放大','Diagram canvas; scroll and zoom'));
     const sizer=make('div',null,'diagram-sizer'),stage=make('div',null,'diagram-stage');sizer.append(stage);viewport.append(sizer);root.append(viewport);host.replaceChildren(root);
+    const labelMeasure=document.createElement('canvas').getContext('2d');
     // Components keep their own source-backed topology. Allocate only the columns
     // they actually use: a single chain no longer reserves an empty three-column grid.
     const placement=new Map(),groups=[],unseen=new Set(nodes.map(n=>n.id));let totalRows=0;
@@ -69,7 +72,7 @@
       });
       totalRows+=bandRows+(bandIndex<bands.length-1?1:0);
     });
-    const cw=286,gap=76,left=32,top=42,positions=new Map(),cards=new Map();
+    const cw=286,gap=Math.max(128,...edges.filter(e=>e.kind!=='feedback'&&e.type!=='feedback').map(e=>labelMetrics(e.label||say('关联','Related')).width+52)),left=32,top=42,positions=new Map(),cards=new Map();
     const surfaceWidth=left*2+cols*cw+(cols-1)*gap;
     nodes.forEach((n,i)=>{
       const {row,col}=placement.get(n.id);
@@ -80,24 +83,23 @@
       if(options.showNumbers!==false)meta.append(make('span',String(number).padStart(2,'0'),'diagram-number'));
       meta.append(make('span',n.tag||say('逻辑节点','Logic node'),'diagram-tag'));
       button.title=n.title;button.append(meta,make('h4',n.title),make('p',n.summary||n.output||'','diagram-summary'));card.append(button);
-      const out=edges.filter(e=>e.from===n.id);
-      if(out.length){const transitions=make('div',null,'diagram-transitions');out.forEach(e=>{
-        const b=make('button',null,'diagram-transition');b.type='button';b.dataset.edgeId=e.id;
-        b.append(make('span','→','diagram-destination'),make('span',(e.label||say('关联','Related to'))+' · '+nodes.find(x=>x.id===e.to).title,'diagram-transition-label'));
-        b.title=(e.label||say('关联','Related to'))+' · '+nodes.find(x=>x.id===e.to).title+(e.condition?' · '+e.condition:'');b.onclick=()=>select(n.id,e.id);transitions.append(b);
-      });card.append(transitions);}
       stage.append(card);cards.set(n.id,card);positions.set(n.id,{row,col,x:left+col*(cw+gap),h:0,y:0});button.onclick=()=>select(n.id);
     });
-    const svg=svgEl('svg',{class:'diagram-wires','aria-hidden':'true'});stage.prepend(svg);
+    const svg=svgEl('svg',{class:'diagram-wires',role:'group','aria-label':say('节点之间的逻辑关系','Relationships between nodes')});stage.prepend(svg);
+    // Keep every relationship label above every wire and direction cue,
+    // including edges created later and paths rebuilt during zoom or resize.
+    const wireLayer=svgEl('g',{class:'diagram-wire-layer','aria-hidden':'true'});
+    const flowLayer=svgEl('g',{class:'diagram-flow-layer','aria-hidden':'true'});
+    const labelLayer=svgEl('g',{class:'diagram-label-layer'});
+    svg.append(wireLayer,flowLayer,labelLayer);
     // Surfaces are painted with inline styles read from the themed palette. Stylesheet
     // backgrounds inside this page can be alpha-blended with white by the rendering path
     // (verified 2026-09-18), which turns dark cards light gray; inline button styles do not.
-    const readPal=()=>{const cs=getComputedStyle(root);const t=k=>cs.getPropertyValue(k).trim();return{card:t('--dg-card'),dimCard:t('--dg-dim-card'),trans:t('--dg-trans-bg'),transInk:t('--dg-trans-ink')};};
+    const readPal=()=>{const cs=getComputedStyle(root);const t=k=>cs.getPropertyValue(k).trim();return{card:t('--dg-card'),dimCard:t('--dg-dim-card')};};
     let pal=readPal();
     const paintSurface=c=>{
       const b=c.querySelector('.diagram-node-button');
       if(b)b.style.background=c.classList.contains('is-dimmed')?pal.dimCard:pal.card;
-      c.querySelectorAll('.diagram-transition').forEach(x=>{x.style.background=pal.trans;x.style.color=pal.transInk;});
     };
     cards.forEach(paintSurface);
     new MutationObserver(()=>{pal=readPal();cards.forEach(paintSurface);}).observe(document.body,{attributes:true,attributeFilter:['data-theme','class','style']});
@@ -107,10 +109,139 @@
     const connections=make('div',null,'diagram-connections');connections.hidden=true;connections.setAttribute('aria-live','polite');root.append(connections);
     if(options.detail){options.detail.hidden=true;}
     const groupLabels=groups.length>1?groups.map(g=>{const label=make('div',say('独立关系分支 · ','Separate branch · ')+nodes.find(n=>g.ids.has(n.id)).title,'diagram-group-label');stage.append(label);return {g,label};}):[];
-    const paths=new Map(),flows=new Map();let width=surfaceWidth,height=0,scale=1,selected=null,manualZoom=false,fitMode='width';
+    const paths=new Map(),flows=new Map(),labels=new Map();let width=surfaceWidth,height=0,scale=1,selected=null,selectedEdge=null,manualZoom=false,fitMode='width';
+    function labelMetrics(text){
+      if(labelMeasure)labelMeasure.font='700 11px '+(getComputedStyle(root).getPropertyValue('--font-display').trim()||'system-ui');
+      const measure=value=>labelMeasure?labelMeasure.measureText(value).width+Array.from(value).length*.11:Array.from(value).length*11.5;
+      const lines=[];let line='';
+      for(const character of Array.from(String(text).replace(/\s+/g,' ').trim())){
+        if(line&&measure(line+character)>220){
+          const space=line.lastIndexOf(' ');
+          if(space>0){lines.push(line.slice(0,space));line=line.slice(space+1)+character;}
+          else{lines.push(line);line=character;}
+        }else line+=character;
+      }
+      if(line||!lines.length)lines.push(line);
+      return{lines,width:Math.max(52,Math.ceil(Math.max(...lines.map(measure)))+24),height:lines.length*16+8};
+    }
+    function routeSegments(points){
+      const simple=[];
+      points.forEach(point=>{
+        const last=simple[simple.length-1];
+        if(last&&last.x===point.x&&last.y===point.y)return;
+        const previous=simple[simple.length-2];
+        if(previous&&((previous.x===last.x&&last.x===point.x&&(last.y-previous.y)*(point.y-last.y)>0)||(previous.y===last.y&&last.y===point.y&&(last.x-previous.x)*(point.x-last.x)>0)))simple.pop();
+        simple.push(point);
+      });
+      return simple.slice(1).map((b,i)=>({a:simple[i],b,horizontal:simple[i].y===b.y,length:Math.hypot(b.x-simple[i].x,b.y-simple[i].y)}));
+    }
+    function pathDescription(points){return points.map((point,i)=>(i?'L ':'M ')+point.x+' '+point.y).join(' ');}
+    function positionLabels(routes){
+      const placed=[];
+      const cardsBounds=Array.from(positions.values(),p=>({left:p.x-8,right:p.x+cw+8,top:p.y-8,bottom:p.y+p.h+8}));
+      const boxFor=(x,y,r)=>({left:x-r.width/2,right:x+r.width/2,top:y-r.height/2,bottom:y+r.height/2});
+      function slot(route,host){
+        if(!host)return null;
+        const horizontal=host.horizontal,half=(horizontal?route.width:route.height)/2;
+        // A slot needs clearance in both axes. A tall vertical corridor near
+        // the left edge cannot hold a wide English label inside the canvas.
+        if(horizontal?host.a.y<route.height/2+8:host.a.x<route.width/2+8)return null;
+        const first=horizontal?host.a.x:host.a.y,last=horizontal?host.b.x:host.b.y;
+        const low=Math.max(Math.min(first,last)+half+16,8+half),high=Math.max(first,last)-half-16;
+        if(low>high)return null;
+        let intervals=[[low,high]];
+        const subtract=(start,end)=>{intervals=intervals.flatMap(([a,b])=>{
+          if(end<a||start>b)return[[a,b]];
+          const result=[];if(start>a)result.push([a,start-.5]);if(end<b)result.push([end+.5,b]);
+          return result.filter(([x,y])=>x<=y);
+        });};
+        const obstacles=[...cardsBounds,...placed];
+        routes.forEach(other=>other.segments.forEach(segment=>{
+          if(segment===host)return;
+          obstacles.push({left:Math.min(segment.a.x,segment.b.x)-8,right:Math.max(segment.a.x,segment.b.x)+8,
+            top:Math.min(segment.a.y,segment.b.y)-8,bottom:Math.max(segment.a.y,segment.b.y)+8});
+        }));
+        obstacles.forEach(box=>{
+          if(horizontal&&host.a.y>=box.top-route.height/2&&host.a.y<=box.bottom+route.height/2)subtract(box.left-route.width/2,box.right+route.width/2);
+          else if(!horizontal&&host.a.x>=box.left-route.width/2&&host.a.x<=box.right+route.width/2)subtract(box.top-route.height/2,box.bottom+route.height/2);
+        });
+        const middle=(first+last)/2;
+        const values=intervals.map(([a,b])=>Math.max(a,Math.min(b,middle))).sort((a,b)=>Math.abs(a-middle)-Math.abs(b-middle));
+        if(!values.length)return null;
+        return horizontal?{x:values[0],y:host.a.y}:{x:host.a.x,y:values[0]};
+      }
+      function extendRoute(route){
+        const source=positions.get(route.from),target=positions.get(route.to);
+        const sourceRowBottom=Math.max(...Array.from(positions.values()).filter(p=>p.row===source.row).map(p=>p.y+p.h));
+        const first=route.segments[0],last=route.segments[route.segments.length-1];
+        const start=first.a,end=last.b;
+        const exit=first.horizontal?{x:start.x+Math.sign(first.b.x-start.x)*20,y:start.y}:{x:start.x,y:start.y+Math.sign(first.b.y-start.y)*20};
+        const entry=last.horizontal?{x:end.x-Math.sign(end.x-last.a.x)*20,y:end.y}:{x:end.x,y:end.y-Math.sign(end.y-last.a.y)*20};
+        const exitTurn={x:exit.x,y:Math.max(exit.y,sourceRowBottom+24)};
+        const entryTurn=last.horizontal?{x:entry.x,y:target.y-28}:entry;
+        const rail=width+route.width/2+32;
+        let points,lastRail=rail;
+        if(Math.abs(entryTurn.y-exitTurn.y)<route.height+40){
+          const turnY=Math.max(exitTurn.y,entryTurn.y,height)+route.height+64;
+          lastRail=rail+route.width+40;
+          points=[start,exit,exitTurn,{x:rail,y:exitTurn.y},{x:rail,y:turnY},{x:lastRail,y:turnY},{x:lastRail,y:entryTurn.y},entryTurn,entry,end];
+          height=Math.max(height,turnY+24);
+        }else points=[start,exit,exitTurn,{x:rail,y:exitTurn.y},{x:rail,y:entryTurn.y},entryTurn,entry,end];
+        const description=pathDescription(points);
+        paths.get(route.id).setAttribute('d',description);flows.get(route.id).setAttribute('d',description);
+        route.segments=routeSegments(points);route.external=true;route.rail=rail;route.anchor=null;
+        width=lastRail+route.width/2+32;
+      }
+      // Every label stays on its own straight segment. If a corridor is too
+      // crowded, extend that edge's route and reserve a new outside segment.
+      for(let attempt=0;attempt<=routes.length*2;attempt++){
+        placed.length=0;routes.forEach(route=>route.anchor=null);let retry=false;
+        for(const route of routes){
+          const ordered=route.segments.slice().sort((a,b)=>{
+            if(route.external)return Number(b.a.x===route.rail&&b.b.x===route.rail)-Number(a.a.x===route.rail&&a.b.x===route.rail)||b.length-a.length;
+            return Number(b.horizontal)-Number(a.horizontal)||b.length-a.length;
+          });
+          let found=null;
+          for(const segment of ordered){found=slot(route,segment);if(found)break;}
+          if(!found){extendRoute(route);retry=true;break;}
+          route.anchor=found;
+          const box=boxFor(found.x,found.y,route);
+          placed.push({left:box.left-8,right:box.right+8,top:box.top-8,bottom:box.bottom+8});
+        }
+        if(!retry)break;
+      }
+      routes.forEach((route,i)=>{
+        // The fresh outer rail has no foreign segment beyond the canvas;
+        // its middle remains a safe slot if all crowded routes were extended.
+        let found=route.anchor||slot(route,route.segments.find(s=>s.a.x===route.rail&&s.b.x===route.rail));
+        if(!found){extendRoute(route);found=slot(route,route.segments.find(s=>s.a.x===route.rail&&s.b.x===route.rail));}
+        if(!found)return;
+        route.label.setAttribute('transform',`translate(${found.x} ${found.y})`);
+        const box=boxFor(found.x,found.y,route),maskId=uid+'-label-gap-'+i;
+        width=Math.max(width,box.right+20);height=Math.max(height,box.bottom+20);
+        const mask=svgEl('mask',{id:maskId,class:'diagram-label-gap',maskUnits:'userSpaceOnUse',maskContentUnits:'userSpaceOnUse',x:-32,y:-32,width:width+64,height:height+64});
+        mask.append(svgEl('rect',{x:-32,y:-32,width:width+64,height:height+64,fill:'white'}),svgEl('rect',{x:box.left-3,y:box.top-3,width:route.width+6,height:route.height+6,rx:3,fill:'black'}));
+        defs.append(mask);paths.get(route.id).setAttribute('mask','url(#'+maskId+')');flows.get(route.id).setAttribute('mask','url(#'+maskId+')');
+        // Re-routing changes the measured travel used by both quiet animations.
+        const path=paths.get(route.id),flow=flows.get(route.id);let length=0;
+        try{length=path.getTotalLength();}catch(_){ }
+        if(length>0){
+          path.style.setProperty('--wire-len',length.toFixed(1));
+          path.style.setProperty('--draw-dur',Math.max(360,Math.min(750,length*.45)).toFixed(0)+'ms');
+          const travel=Math.max(40,length-20),head=route.feedback?34:route.inference?20:30;
+          flow.style.setProperty('--flow-travel',travel.toFixed(1));flow.style.setProperty('--flow-dash',head+' '+(travel+head).toFixed(0));
+        }
+      });
+      // Keep earlier masks large enough after any outer route expands the stage.
+      defs.querySelectorAll('.diagram-label-gap').forEach(mask=>{
+        mask.setAttribute('width',width+64);mask.setAttribute('height',height+64);
+        mask.firstElementChild.setAttribute('width',width+64);mask.firstElementChild.setAttribute('height',height+64);
+      });
+    }
     // One quiet entrance, then a static map. A selected relation gets one
     // directional cue; all other links remain still and readable.
     const RM=matchMedia('(prefers-reduced-motion: reduce)');
+    const motionOff=()=>RM.matches||document.body.dataset.motion==='off';
     let rebuildFrame=0,visibleNow=false,io=null,hasDrawn=false,flowTimer=null;
     function applyDraw(){svg.classList.add('is-drawn','is-static');}
     function settleWires(){
@@ -119,7 +250,7 @@
       svg.classList.remove('is-drawn');
       rebuildFrame=requestAnimationFrame(()=>{
         rebuildFrame=0;
-        if(RM.matches||hasDrawn){hasDrawn=true;applyDraw();}
+        if(motionOff()||hasDrawn){hasDrawn=true;applyDraw();}
         else if(visibleNow)playDraw();
       });
     }
@@ -128,7 +259,7 @@
     }
     function flowCancel(){clearTimeout(flowTimer);flowTimer=null;svg.classList.remove('is-flowing');}
     function startFlow(){
-      if(RM.matches||!selected)return;
+      if(motionOff()||!selected)return;
       flowCancel();
       void svg.getBoundingClientRect();
       svg.classList.add('is-flowing');
@@ -152,42 +283,67 @@
       const rows=totalRows,heights=Array(rows).fill(0),loads=Array(rows).fill(0);
       nodes.forEach(n=>{const p=positions.get(n.id);p.h=cards.get(n.id).offsetHeight;heights[p.row]=Math.max(heights[p.row],p.h);});
       edges.forEach(e=>{const a=positions.get(e.from),b=positions.get(e.to);if(a&&b){loads[a.row]++;loads[b.row]++;}});
-      let y=top;const rowY=[],gaps=[];
-      for(let r=0;r<rows;r++){rowY[r]=y;gaps[r]=Math.max(groups.some(g=>g.end===r)?86:66,44+(loads[r]+(loads[r+1]||0))*6);y+=heights[r]+gaps[r];}
-      positions.forEach((p,id)=>{p.y=rowY[p.row];const card=cards.get(id);card.style.left=p.x+'px';card.style.top=p.y+'px';});
-      paths.forEach(p=>p.remove());paths.clear();flows.forEach(q=>q.remove());flows.clear();
-      let lane=0,minY=0;
+      const specs=new Map(edges.map(e=>[e.id,labelMetrics(e.label||say('关联','Related'))]));
       const incoming=new Map(),outgoing=new Map();nodes.forEach(n=>{incoming.set(n.id,edges.filter(e=>e.to===n.id));outgoing.set(n.id,edges.filter(e=>e.from===n.id));});
+      let y=top;const rowY=[],gaps=Array.from({length:rows},(_,r)=>Math.max(92,64+(loads[r]+(loads[r+1]||0))*8));
+      edges.forEach(e=>{
+        const a=positions.get(e.from),b=positions.get(e.to);if(!a||!b||b.row!==a.row+1||e.kind==='feedback'||e.type==='feedback')return;
+        const sx=a.x+cw*(outgoing.get(e.from).indexOf(e)+1)/(outgoing.get(e.from).length+1),tx=b.x+cw*(incoming.get(e.to).indexOf(e)+1)/(incoming.get(e.to).length+1),spec=specs.get(e.id);
+        if(Math.abs(sx-tx)>.5&&Math.abs(sx-tx)<spec.width+32)gaps[a.row]=Math.max(gaps[a.row],2*(spec.height+32)+25);
+        else gaps[a.row]=Math.max(gaps[a.row],spec.height+57);
+      });
+      for(let r=0;r<rows;r++){rowY[r]=y;y+=heights[r]+gaps[r];}
+      positions.forEach((p,id)=>{p.y=rowY[p.row];const card=cards.get(id);card.style.left=p.x+'px';card.style.top=p.y+'px';});
+      paths.forEach(p=>p.remove());paths.clear();flows.forEach(q=>q.remove());flows.clear();labels.forEach(g=>g.remove());labels.clear();
+      defs.querySelectorAll('.diagram-label-gap').forEach(mask=>mask.remove());
+      const railLabelWidth=Math.max(52,...Array.from(specs.values(),spec=>spec.width)),railStep=railLabelWidth+40;
+      let lane=0,minY=16,railCursor=surfaceWidth+24+railLabelWidth/2;const routes=[];
       edges.forEach(e=>{
         const a=positions.get(e.from),b=positions.get(e.to);if(!a||!b)return;
         const feedback=e.kind==='feedback'||e.type==='feedback';
-        let d;
+        const spec=specs.get(e.id);
+        let d,lx,ly,points,external=false,rail=null;
         if(a.row===b.row&&Math.abs(a.col-b.col)===1&&!feedback){
           const forward=b.x>a.x,sy=a.y+74,ty=b.y+74;
           const x1=forward?a.x+cw+5:a.x-5,x2=forward?b.x-12:b.x+cw+12;
-          d=`M ${x1} ${sy} C ${(x1+x2)/2} ${sy}, ${(x1+x2)/2} ${ty}, ${x2} ${ty}`;
+          d=`M ${x1} ${sy} L ${x2} ${ty}`;
+          points=[{x:x1,y:sy},{x:x2,y:ty}];
+          lx=(x1+x2)/2;ly=(sy+ty)/2;
         }else{
           const oi=outgoing.get(e.from).indexOf(e),ii=incoming.get(e.to).indexOf(e);
           const sx=a.x+cw*(oi+1)/(outgoing.get(e.from).length+1),tx=b.x+cw*(ii+1)/(incoming.get(e.to).length+1);
           const sy=a.y+a.h+5,ty=b.y-12;
           if(b.row===a.row+1&&!feedback){
-            // A direct next-row link stays in the open gap between both cards.
-            const mid=(sy+ty)/2;d=`M ${sx} ${sy} V ${mid} H ${tx} V ${ty}`;
+            const mid=(rowY[a.row]+heights[a.row]+5+ty)/2;
+            d=`M ${sx} ${sy} V ${mid} H ${tx} V ${ty}`;
+            points=[{x:sx,y:sy},{x:sx,y:mid},{x:tx,y:mid},{x:tx,y:ty}];
+            lx=(sx+tx)/2;ly=mid;
           }else{
-            // Only skipping and feedback links need an exterior return lane.
-            const exitY=sy+18,entryY=ty-18;minY=Math.min(minY,entryY);
-            const rail=surfaceWidth+18+(lane++)*14;
+            const exitY=rowY[a.row]+heights[a.row]+23,entryY=ty-18;minY=Math.min(minY,entryY);
+            external=true;rail=railCursor;railCursor+=railStep;lane++;
             d=`M ${sx} ${sy} V ${exitY} H ${rail} V ${entryY} H ${tx} V ${ty}`;
+            points=[{x:sx,y:sy},{x:sx,y:exitY},{x:rail,y:exitY},{x:rail,y:entryY},{x:tx,y:entryY},{x:tx,y:ty}];
+            lx=rail;ly=(exitY+entryY)/2;
           }
         }
       const isInference=e.evidence==='inference';
       const cls='diagram-wire'+(feedback?' is-feedback':'')+(isInference?' is-inference':'');
-      const p=svgEl('path',{d,class:cls,'marker-end':`url(#${uid}-${feedback?'feedback':isInference?'inference':'normal'})`});
-      svg.append(p);paths.set(e.id,p);
+      const p=svgEl('path',{d,class:cls,'aria-hidden':'true','marker-end':`url(#${uid}-${feedback?'feedback':isInference?'inference':'normal'})`});
+      wireLayer.append(p);paths.set(e.id,p);
       // The flow head rides a second path with identical geometry, stacked above the
       // solid line so the effect runs ON the line rather than replacing it.
-      const q=svgEl('path',{d,class:'diagram-flow'+(feedback?' is-feedback':'')+(isInference?' is-inference':''),'data-edge-id':e.id});
-      svg.append(q);flows.set(e.id,q);
+      const q=svgEl('path',{d,class:'diagram-flow'+(feedback?' is-feedback':'')+(isInference?' is-inference':''),'aria-hidden':'true','data-edge-id':e.id});
+      flowLayer.append(q);flows.set(e.id,q);
+      const labelText=e.label||say('关联','Related');
+      const labelWidth=spec.width;
+      const lg=svgEl('g',{class:'diagram-edge-label'+(feedback?' is-feedback':'')+(isInference?' is-inference':''),transform:`translate(${lx} ${ly})`,'data-node-id':e.from,'data-edge-id':e.id,tabindex:'0',role:'button','aria-label':labelText+' · '+nodes.find(n=>n.id===e.from).title+' → '+nodes.find(n=>n.id===e.to).title});
+      const labelTextElement=svgEl('text',{x:0,y:4,'text-anchor':'middle'});
+      spec.lines.forEach((line,i)=>{const span=svgEl('tspan',{x:0,y:4+(i-(spec.lines.length-1)/2)*16});span.textContent=line;labelTextElement.append(span);});
+      lg.append(svgEl('rect',{x:-labelWidth/2,y:-spec.height/2,width:labelWidth,height:spec.height,rx:10}),labelTextElement);
+      lg.addEventListener('click',ev=>{ev.stopPropagation();select(e.from,e.id);});
+      lg.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();select(e.from,e.id);}});
+      labelLayer.append(lg);labels.set(e.id,lg);
+      routes.push({id:e.id,from:e.from,to:e.to,label:lg,width:spec.width,height:spec.height,segments:routeSegments(points),external,rail,feedback,inference:isInference});
       // Geometry is measured AFTER insertion: a detached SVG path reports a bogus
       // getTotalLength() in Chromium, which would freeze the head at its minimum travel.
       let len=0;try{len=p.getTotalLength();}catch(err){len=0;}
@@ -208,19 +364,21 @@
       // Feedback loops and inferred links run slower — weight and pace both carry meaning.
       q.style.setProperty('--flow-dur',(feedback?2.2:isInference?1.9:1.5)+'s');
       });
-      width=surfaceWidth+(lane?30+lane*14:0);height=y-gaps[rows-1]+Math.max(54,gaps[rows-1]);
+      width=lane?railCursor-railStep+railLabelWidth/2+24:surfaceWidth;height=y-gaps[rows-1]+Math.max(54,gaps[rows-1]);
+      positionLabels(routes);
       // Top entry corridors for return arrows are inside the canvas.
       const pad=Math.max(0,16-minY);stage.style.paddingTop='0';
       svg.setAttribute('width',width);svg.setAttribute('height',height+pad);svg.style.top=pad+'px';
       cards.forEach((card,id)=>card.style.top=(positions.get(id).y+pad)+'px');height+=pad;
       groupLabels.forEach(({g,label})=>{label.style.top=(rowY[g.start]+pad-36)+'px';const first=Array.from(g.ids)[0];label.style.left=(positions.get(first)?.x||left)+'px';});
+      // Labels share their parent SVG's padding offset with the paths.
       stage.style.width=width+'px';stage.style.height=height+'px';
       if(!manualZoom){
         const byWidth=(viewport.clientWidth-24)/width;
         const byHeight=(viewport.clientHeight-24)/height;
         scale=Math.max(.18,Math.min(1,fitMode==='all'?Math.min(byWidth,byHeight):byWidth))||1;
       }
-      setScale(scale);if(selected)highlight(selected);
+      setScale(scale);if(selected)highlight(selected,selectedEdge);
       // A path rebuild must leave a complete still map after the first entrance.
       armDraw();
       settleWires();
@@ -240,9 +398,9 @@
       viewport.scrollLeft=stage.offsetLeft+cx*scale-viewport.clientWidth/2;
       viewport.scrollTop=stage.offsetTop+cy*scale-viewport.clientHeight/2;
     }
-    function highlight(id,edgeId){const related=new Set([id]);edges.filter(e=>edgeId?e.id===edgeId:e.from===id||e.to===id).forEach(e=>{related.add(e.from);related.add(e.to);});cards.forEach((c,k)=>{c.classList.toggle('is-selected',k===id);c.classList.toggle('is-dimmed',!!id&&!related.has(k));c.querySelector('.diagram-node-button').setAttribute('aria-pressed',String(k===id));paintSurface(c);});edges.forEach(e=>{const p=paths.get(e.id);if(p){const on=!!id&&(edgeId?e.id===edgeId:e.from===id||e.to===id);p.classList.toggle('is-active',on);p.classList.toggle('is-dimmed',!!id&&!on);}const q=flows.get(e.id);if(q){const on=!!id&&(edgeId?e.id===edgeId:e.from===id||e.to===id);q.classList.toggle('is-active',on);q.classList.toggle('is-dimmed',!!id&&!on);}});svg.classList.toggle('is-selecting',!!id);}
-    function reset(){hideHover();selected=null;flowCancel();highlight(null);connections.hidden=true;if(options.detail)options.detail.hidden=true;}
-    function select(id,edgeId){hideHover();selected=id;highlight(id,edgeId);startFlow();connections.replaceChildren();connections.hidden=false;
+    function highlight(id,edgeId){const related=new Set([id]);edges.filter(e=>edgeId?e.id===edgeId:e.from===id||e.to===id).forEach(e=>{related.add(e.from);related.add(e.to);});cards.forEach((c,k)=>{c.classList.toggle('is-selected',k===id);c.classList.toggle('is-dimmed',!!id&&!related.has(k));c.querySelector('.diagram-node-button').setAttribute('aria-pressed',String(k===id));paintSurface(c);});edges.forEach(e=>{const on=!!id&&(edgeId?e.id===edgeId:e.from===id||e.to===id);const p=paths.get(e.id);if(p){p.classList.toggle('is-active',on);p.classList.toggle('is-dimmed',!!id&&!on);}const q=flows.get(e.id);if(q){q.classList.toggle('is-active',on);q.classList.toggle('is-dimmed',!!id&&!on);}const g=labels.get(e.id);if(g){g.classList.toggle('is-active',on);g.classList.toggle('is-dimmed',!!id&&!on);}});svg.classList.toggle('is-selecting',!!id);}
+    function reset(){hideHover();selected=null;selectedEdge=null;flowCancel();highlight(null);connections.hidden=true;if(options.detail)options.detail.hidden=true;}
+    function select(id,edgeId){hideHover();selected=id;selectedEdge=edgeId||null;highlight(id,selectedEdge);startFlow();connections.replaceChildren();connections.hidden=false;
       const close=make('button',say('恢复全图','Show all'),'diagram-reset');close.type='button';close.onclick=reset;
       connections.append(close,make('strong',nodes.find(n=>n.id===id).title));
       const nearby=edges.filter(e=>edgeId?e.id===edgeId:e.from===id||e.to===id);
@@ -252,24 +410,19 @@
     }
     // Hover preview renders the very same card data as the locked detail panel.
     const hover=make('div',null,'diagram-hovercard');hover.setAttribute('aria-hidden','true');hover.tabIndex=0;document.body.append(hover);
-    let hoverId=null,hoverAnchor=null,hoverHideTimer=null;
+    let hoverId=null,hoverEdgeId=null,hoverAnchor=null,hoverHideTimer=null;
     function cancelHoverHide(){clearTimeout(hoverHideTimer);hoverHideTimer=null;}
-    function hideHover(){cancelHoverHide();hover.classList.remove('is-visible');hover.setAttribute('aria-hidden','true');hoverId=null;hoverAnchor=null;}
-    function scheduleHoverHide(){if(hoverHideTimer||!hoverId)return;hoverHideTimer=setTimeout(hideHover,300);}
+    function hideHover(){cancelHoverHide();hover.classList.remove('is-visible');hover.setAttribute('aria-hidden','true');hoverId=null;hoverEdgeId=null;hoverAnchor=null;}
+    function scheduleHoverHide(){if(hoverHideTimer||!hoverId||hover.contains(document.activeElement))return;hoverHideTimer=setTimeout(hideHover,300);}
     function inHoverBridge(x,y){
       if(!hoverAnchor||!hover.classList.contains('is-visible'))return false;
-      const a=hoverAnchor.getBoundingClientRect(),b=hover.getBoundingClientRect(),pad=8;
-      if(x>=a.left-pad&&x<=a.right+pad&&y>=a.top-pad&&y<=a.bottom+pad)return true;
-      if(x>=b.left-pad&&x<=b.right+pad&&y>=b.top-pad&&y<=b.bottom+pad)return true;
-      if(b.left>=a.right)return x>=a.right-pad&&x<=b.left+pad&&y>=Math.min(a.top,b.top)-pad&&y<=Math.max(a.bottom,b.bottom)+pad;
-      if(a.left>=b.right)return x>=b.right-pad&&x<=a.left+pad&&y>=Math.min(a.top,b.top)-pad&&y<=Math.max(a.bottom,b.bottom)+pad;
-      return x>=Math.max(a.left,b.left)-pad&&x<=Math.min(a.right,b.right)+pad&&y>=Math.min(a.bottom,b.bottom)-pad&&y<=Math.max(a.top,b.top)+pad;
+      return window.LFMHoverBridge.contains(hoverAnchor.getBoundingClientRect(),hover.getBoundingClientRect(),x,y);
     }
-    function showHover(id,card){
+    function showHover(id,card,edgeId=null){
       if(!options.describe)return;
       cancelHoverHide();
-      if(hoverId===id&&hoverAnchor===card)return;
-      if(hoverId!==id){hover.replaceChildren(options.describe(id));hoverId=id;hover.scrollTop=0;}
+      if(hoverId===id&&hoverEdgeId===edgeId&&hoverAnchor===card)return;
+      if(hoverId!==id||hoverEdgeId!==edgeId){hover.replaceChildren(options.describe(id,edgeId));hoverId=id;hoverEdgeId=edgeId;hover.scrollTop=0;}
       hoverAnchor=card;
       hover.classList.add('is-visible');
       hover.setAttribute('aria-hidden','false');
@@ -293,31 +446,29 @@
       if(inHoverBridge(e.clientX,e.clientY))cancelHoverHide();
       else scheduleHoverHide();
     });
-    // Keep the page and diagram stationary while the pointer is reading the
-    // floating explanation, including at the top and bottom of its scrollbar.
-    function applyHoverWheel(delta,target){
-      let remaining=delta;
-      const inner=target?.closest?.('.relation-edge-list');
-      if(inner&&hover.contains(inner)&&inner.scrollHeight>inner.clientHeight+1){
-        const before=inner.scrollTop;
-        inner.scrollTop+=remaining;
-        remaining-=inner.scrollTop-before;
-      }
-      if(remaining)hover.scrollTop+=remaining;
-    }
-    hover.addEventListener('wheel',e=>{
-      applyHoverWheel(e.deltaY*(e.deltaMode===1?40:e.deltaMode===2?hover.clientHeight:1),e.target);
-      e.preventDefault();e.stopPropagation();
-    },{passive:false});
+    hover.addEventListener('wheel',e=>window.LFMScrollChain.route(e,hover,viewport),{passive:false});
     viewport.addEventListener('wheel',e=>{
       if(!hover.classList.contains('is-visible')||!hoverAnchor||!inHoverBridge(e.clientX,e.clientY))return;
-      applyHoverWheel(e.deltaY*(e.deltaMode===1?40:e.deltaMode===2?hover.clientHeight:1));
-      e.preventDefault();
+      window.LFMScrollChain.route(e,hover,viewport);
     },{passive:false});
-    stage.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;const card=e.target.closest('.diagram-card');if(card&&selected!==card.dataset.nodeId)showHover(card.dataset.nodeId,card);});
+    function previewTarget(target){
+      const label=target.closest('.diagram-edge-label');
+      if(label){showHover(label.dataset.nodeId,label,label.dataset.edgeId);return;}
+      const card=target.closest('.diagram-card');
+      if(card)showHover(card.dataset.nodeId,card);
+    }
+    stage.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')previewTarget(e.target);});
+    stage.addEventListener('focusin',e=>previewTarget(e.target));
+    stage.addEventListener('focusout',()=>{setTimeout(()=>{if(!stage.contains(document.activeElement)&&!hover.contains(document.activeElement))scheduleHoverHide();},0);});
+    hover.addEventListener('focusin',cancelHoverHide);
+    hover.addEventListener('focusout',()=>{setTimeout(()=>{if(!hover.contains(document.activeElement))scheduleHoverHide();},0);});
+    document.addEventListener('pointerdown',e=>{if(hoverAnchor&&!hover.contains(e.target)&&!hoverAnchor.contains(e.target))hideHover();});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')hideHover();});
+    document.addEventListener('lfm-panel-change',()=>{hideHover();requestAnimationFrame(()=>requestAnimationFrame(refresh));});
+    window.addEventListener('scroll',hideHover,{passive:true});
     stage.addEventListener('pointerleave',e=>{if(!inHoverBridge(e.clientX,e.clientY))scheduleHoverHide();});
     viewport.addEventListener('scroll',hideHover);
-    viewport.addEventListener('click',e=>{if(!e.target.closest('.diagram-card'))reset();});
+    viewport.addEventListener('click',e=>{if(!e.target.closest('.diagram-card,.diagram-edge-label'))reset();});
     // Escape is layered: in fullscreen the FIRST Escape must collapse the overlay
     // (and put the studio back), and only a subsequent Escape clears a selected node.
     // The fullscreen handler is therefore registered first and marks the event handled
@@ -327,15 +478,32 @@
     zoomOut.onclick=()=>zoomBy(-.15);zoomIn.onclick=()=>zoomBy(.15);
     fit.onclick=()=>{hideHover();fitMode='width';manualZoom=false;layout();viewport.scrollTop=0;};
     overview.onclick=()=>{hideHover();fitMode='all';manualZoom=false;layout();viewport.scrollLeft=0;viewport.scrollTop=0;};
-    let placeholder=null,detailPlaceholder=null;
-    function expand(){hideHover();const on=root.classList.toggle('is-expanded');full.textContent=on?say('退出全屏','Exit full screen'):say('全屏查看','Full screen');
-      if(on){placeholder=make('span');root.before(placeholder);document.body.append(root);root.setAttribute('aria-modal','true');root.setAttribute('role','dialog');root.dataset.previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';
+    let placeholder=null,detailPlaceholder=null,previousScroll=null;
+    function expand(){hideHover();const box=root.getBoundingClientRect(),scroll={x:window.scrollX,y:window.scrollY};const on=root.classList.toggle('is-expanded');full.textContent=on?say('退出全屏','Exit full screen'):say('全屏查看','Full screen');
+      if(on){previousScroll=scroll;root.append(hover);placeholder=make('div');placeholder.style.width=box.width+'px';placeholder.style.height=box.height+'px';root.before(placeholder);document.body.append(root);root.setAttribute('aria-modal','true');root.setAttribute('role','dialog');root.dataset.previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';
         if(options.detail){detailPlaceholder=make('span');options.detail.before(detailPlaceholder);root.append(options.detail);options.detail.classList.add('diagram-expanded-detail');}
         full.focus();
-      }else{root.removeAttribute('role');root.removeAttribute('aria-modal');document.body.style.overflow=root.dataset.previousOverflow||'';placeholder.replaceWith(root);if(detailPlaceholder){detailPlaceholder.replaceWith(options.detail);options.detail.classList.remove('diagram-expanded-detail');detailPlaceholder=null;}full.focus();}
+      }else{document.body.append(hover);root.removeAttribute('role');root.removeAttribute('aria-modal');document.body.style.overflow=root.dataset.previousOverflow||'';placeholder.replaceWith(root);if(detailPlaceholder){detailPlaceholder.replaceWith(options.detail);options.detail.classList.remove('diagram-expanded-detail');detailPlaceholder=null;}full.focus();if(previousScroll)window.scrollTo({left:previousScroll.x,top:previousScroll.y,behavior:'instant'});previousScroll=null;}
       manualZoom=false;requestAnimationFrame(layout);
     }
-    full.onclick=expand;root.addEventListener('keydown',e=>{if(!root.classList.contains('is-expanded'))return;if(e.key==='Escape'){escapeHandledByExpand=true;expand();e.stopPropagation();}if(e.key==='Tab'){const focusable=Array.from(root.querySelectorAll('button,[tabindex="0"],summary')).filter(n=>n.getClientRects().length);const first=focusable[0],last=focusable[focusable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
+    let nativeFullscreen=false,fullscreenPending=false;
+    async function toggleFullscreen(){
+      if(fullscreenPending)return;
+      if(document.fullscreenElement===root){await document.exitFullscreen();return;}
+      if(root.classList.contains('is-expanded')){expand();return;}
+      expand();
+      if(root.requestFullscreen){
+        fullscreenPending=true;
+        try{await root.requestFullscreen();nativeFullscreen=document.fullscreenElement===root;}
+        catch(_){/* Keep the viewport-sized fallback when native fullscreen is unavailable. */}
+        finally{fullscreenPending=false;}
+      }
+    }
+    document.addEventListener('fullscreenchange',()=>{
+      if(document.fullscreenElement===root){nativeFullscreen=true;requestAnimationFrame(layout);}
+      else if(nativeFullscreen){nativeFullscreen=false;if(root.classList.contains('is-expanded'))expand();}
+    });
+    full.onclick=toggleFullscreen;root.addEventListener('keydown',e=>{if(!root.classList.contains('is-expanded'))return;if(e.key==='Escape'){escapeHandledByExpand=true;toggleFullscreen();e.stopPropagation();}if(e.key==='Tab'){const focusable=Array.from(root.querySelectorAll('button,[tabindex="0"],summary')).filter(n=>n.getClientRects().length);const first=focusable[0],last=focusable[focusable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
     // Registered AFTER the fullscreen handler so the overlay gets Escape first.
     root.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(escapeHandledByExpand){escapeHandledByExpand=false;return;}hideHover();if(selected){reset();e.stopImmediatePropagation();}});
     /* IntersectionObserver alone can miss a panel switch at the same scroll
@@ -346,7 +514,7 @@
       const on=r.height>0&&r.width>0&&r.bottom>0&&r.top<innerHeight+240;
       if(on===visibleNow)return;
       visibleNow=on;
-      if(on){ if(RM.matches||hasDrawn){hasDrawn=true;applyDraw();return;} playDraw(); }
+      if(on){ if(motionOff()||hasDrawn){hasDrawn=true;applyDraw();return;} playDraw(); }
       else { flowCancel(); }
     };
     const observer=new ResizeObserver(()=>{if(viewport.clientWidth>0){hideHover();layout();announce();}});observer.observe(viewport);
@@ -358,8 +526,11 @@
     document.addEventListener('visibilitychange',announce);
     window.addEventListener('scroll',announce,{passive:true});
     RM.addEventListener?.('change',()=>{armDraw();
-      if(RM.matches){hasDrawn=true;applyDraw();}
+      if(motionOff()){hasDrawn=true;applyDraw();}
       else {applyDraw();if(selected)startFlow();}});
+    document.addEventListener('lfm-motion-change',()=>{
+      if(motionOff()){flowCancel();hasDrawn=true;applyDraw();}
+    });
     if(document.fonts)document.fonts.ready.then(()=>layout(true));
     requestAnimationFrame(()=>layout(true));
     /* refresh() is the external hook for a host that switches panels without

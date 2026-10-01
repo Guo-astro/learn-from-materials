@@ -1,6 +1,7 @@
 """Version 4.3 contracts and offline relation/application controls."""
 from html import escape
 import re
+from source_presentation import display_source
 
 RELATION_TYPES = {
     'prerequisite', 'sequence', 'causes', 'supports', 'contrasts',
@@ -96,5 +97,5 @@ def relations_markdown(data):
     lines = ['\n## ' + ('Relationships' if en else '逻辑关系'), '']
     for edge in edges:
         badge = ('Material evidence' if en else '材料依据') if edge['evidence'] == 'material' else ('Inference for understanding' if en else '辅助理解的推断')
-        lines += [f"- {nodes[edge['from']]} → {nodes[edge['to']]} ({edge['type']}; {badge})", f"  {edge['explanation']}", f"  {'Source' if en else '出处'}: {edge['source']}", '']
+        lines += [f"- {nodes[edge['from']]} → {nodes[edge['to']]} ({edge['type']}; {badge})", f"  {edge['explanation']}", f"  {'Source' if en else '出处'}: {display_source(edge['source'])}", '']
     return '\n'.join(lines)

@@ -97,11 +97,16 @@ check('host calls refresh', /diagram\.refresh/.test(s) || /\.refresh\(\)/.test(s
 check('reduced-motion still composed', (s.match(/prefers-reduced-motion/g) || []).length >= 2);
 check('reduced-motion gated in JS', /RM\.matches/.test(s));
 
-// ---- relationship chip layout --------------------------------------------
+// ---- relationship labels and compact cards -------------------------------
 console.log('--- card layout ---');
-const chipRule = s.match(/\.diagram-transition-label\s*\{([^}]*)\}/);
-check('relation chips wrap', !!chipRule && /white-space\s*:\s*normal/.test(chipRule[1]) && /overflow-wrap\s*:\s*anywhere/.test(chipRule[1]));
-check('relation chips not ellipsized', !!chipRule && !/text-overflow\s*:\s*ellipsis/.test(chipRule[1]) && !/overflow\s*:\s*hidden/.test(chipRule[1]));
+check('no repeated card relation rows', !/['"]diagram-transitions['"]/.test(s));
+check('line labels have edge identities', /class:'diagram-edge-label'/.test(s) && /'data-edge-id':e\.id/.test(s));
+check('line labels centered and focusable', /'text-anchor':'middle'/.test(s) && /tabindex:'0',role:'button','aria-label':labelText/.test(s));
+check('labels above all wires and cues', /svg\.append\(wireLayer,flowLayer,labelLayer\)/.test(s) && /labelLayer\.append\(lg\)/.test(s));
+check('wire and cue reserve label gap', /maskUnits:'userSpaceOnUse'/.test(s) && /paths\.get\(route\.id\)\.setAttribute\('mask'/.test(s) && /flows\.get\(route\.id\)\.setAttribute\('mask'/.test(s));
+check('labels measured and wrapped', /labelMeasure\.measureText/.test(s) && /spec\.lines\.forEach/.test(s));
+check('opaque themed label backing', /fill:var\(--dg-label-bg\);fill-opacity:1/.test(s.replace(/\s+/g,'')) && /diagram-edge-label\.is-dimmed\{opacity:1/.test(s.replace(/\s+/g,'')));
+check('selected edge survives rebuild', /highlight\(selected,selectedEdge\)/.test(s));
 check('card heights measured for rows', /cards\.get\(n\.id\)\.offsetHeight/.test(s) && /heights\[p\.row\]\s*=\s*Math\.max/.test(s));
 
 // ---- registry -------------------------------------------------------------

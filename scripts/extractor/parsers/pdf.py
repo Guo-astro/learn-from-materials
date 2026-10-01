@@ -45,11 +45,13 @@ def extract_with_pdftotext(pdf_path: str) -> str | None:
         return None
     try:
         result = subprocess.run(
-            ["pdftotext", "-layout", pdf_path, "-"],
-            capture_output=True, text=True, timeout=120
+            ["pdftotext", "-enc", "UTF-8", "-layout", pdf_path, "-"],
+            capture_output=True, timeout=120
         )
         if result.returncode == 0 and result.stdout.strip():
-            return result.stdout
+            # Poppler's text stream has an explicit encoding; diagnostics may
+            # use a different Windows code page and must not break extraction.
+            return result.stdout.decode("utf-8")
     except Exception:
         pass
     return None
@@ -162,9 +164,9 @@ def count_pages(pdf_path: str) -> int:
     if shutil.which("pdfinfo"):
         try:
             result = subprocess.run(
-                ["pdfinfo", pdf_path], capture_output=True, text=True, timeout=15
+                ["pdfinfo", pdf_path], capture_output=True, timeout=15
             )
-            for line in result.stdout.splitlines():
+            for line in result.stdout.decode("utf-8", errors="replace").splitlines():
                 if line.startswith("Pages:"):
                     return int(line.split(":")[1].strip())
         except Exception:

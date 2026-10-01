@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import html
 import json
 import re
@@ -11,6 +12,7 @@ import sys
 from pathlib import Path
 
 from verify_coverage import verify as verify_coverage
+from source_presentation import display_source, original_disclosure, framework_condition, rule_condition, validate_labels
 from localization import LOCALE, CATEGORY_EN, ABILITY_EN, localized, localized_enum, t, translate_static
 from page_extensions import validate_extensions, extension_markup, relations_markdown
 from methods import validate_binding, validate_library, read as read_methods
@@ -81,7 +83,7 @@ def esc(value: object) -> str:
 
 
 def source_attr(item: dict) -> str:
-    return f' data-source="{esc(item.get("source", ""))}"'
+    return f' data-source="{esc(item.get("source", ""))}" data-source-display="{esc(display_source(item.get("source", "")))}"'
 
 
 def deep_button(concept: str, source: str) -> str:
@@ -251,7 +253,7 @@ def validate(data: dict) -> None:
     if not isinstance(data, dict):
         raise ValueError("内容契约校验失败：根节点必须是对象")
     errors: list[str] = []
-    allowed_common = {"schemaVersion", "meta", "hero", "footer"}
+    allowed_common = {"schemaVersion", "meta", "hero", "footer", "sourceLabels"}
     if data.get("schemaVersion") not in {"4.2", "4.3"}:
         errors.append('schemaVersion must be "4.2" or "4.3"')
     meta = data.get("meta")
@@ -675,11 +677,18 @@ def validate(data: dict) -> None:
             validate_sources_recursively(errors, data["relationships"], meta.get("sourceType"), "relationships")
     if errors:
         raise ValueError("内容契约校验失败：\n- " + "\n- ".join(errors))
+    validate_labels(data, errors)
+    if errors:
+        raise ValueError("Source label validation failed: " + "; ".join(errors))
     validate_binding(data)
 
 
 def render_hero(hero: dict) -> str:
     return f"""<section class="hero" aria-labelledby="pageTitle"><div class="hero-stamp" aria-hidden="true"><span>LEARNING</span><strong>01</strong><span>STUDIO</span></div><div class="hero-copy"><p class="eyebrow">{esc(hero['eyebrow'])}</p><h1 id="pageTitle">{esc(hero['title'])}</h1><p class="lede">{esc(hero['lede'])}{t('</p></div><aside class="thesis"><span class="thesis-index">CORE / 01</span><strong>一句话总论</strong><span>')}{esc(hero['thesis'])}</span></aside></section>"""
+
+
+def render_card_source(item: dict) -> str:
+    return f'<p class="card-source">{esc(display_source(item.get("source", "")))}</p>' + original_disclosure(item['source']) if item.get('source') else ''
 
 
 def render_learning_depth_banner(meta: dict) -> str:
@@ -694,7 +703,7 @@ def render_frameworks(items: list[dict]) -> str:
         number = item.get('sourceOrder')
         if type(number) is not int or number < 1:  # Legacy 4.2 pages may omit sourceOrder.
             number = index
-        cards.append(f'''<article class="note" data-framework-number="{number:02d}"{source_attr(item)}><h3>{esc(item['name'])}</h3><p>{esc(item['oneLine'])}{t('</p><p class="when">适用：')}{esc(item['when'])}</p>{deep_button(item['name'], item['source'])}</article>''')
+        cards.append(f'''<article class="note" data-framework-number="{number:02d}"{source_attr(item)}><h3>{esc(item['name'])}</h3><p>{esc(item['oneLine'])}</p><p class="when">{esc(framework_condition(item['when']))}</p>{render_card_source(item)}{deep_button(item['name'], item['source'])}</article>''')
     return t('<h2 class="section-title">先抓住材料的知识骨架</h2><p class="section-lead">这些框架来自材料中的关键判断，也是后续内容单元、术语和行动规则的共同底座。</p><div class="grid">') + ''.join(cards) + '</div>'
 
 
@@ -728,12 +737,16 @@ def render_glossary(items: list[dict], units: list[dict]) -> str:
     return f"""{t('<h2 class="section-title">把材料中的专业词汇一次查清</h2><p class="section-lead">共 ')}{len(items)}{t(' 个术语，覆盖英文缩写、领域术语、方法框架、角色流程与指标工具。英文缩写和单词会直接显示中文含义；可搜索，也可逐条展开查看解释和材料语境。</p><div class="glossary-toolbar"><label class="sr-only" for="glossarySearch">搜索术语</label><input id="glossarySearch" class="glossary-search" type="search" placeholder="搜索术语、英文缩写或解释…" autocomplete="off"><span class="glossary-count" id="glossaryCount" aria-live="polite">显示 ')}{len(items)} / {len(items)}</span></div><div class="glossary-list" id="glossaryList">""" + ''.join(cards) + t('</div><p class="glossary-empty" id="glossaryEmpty" hidden>没有找到匹配术语，请换一个关键词。</p><button class="term-ask-fab" id="termAskFab" type="button" data-deep-dive data-concept="术语大全" data-source-ref="材料术语汇总" aria-label="粘贴不理解的术语并向 AI 提问" title="粘贴术语问 AI">?</button>')
 
 
+def rule_condition_title(value: str) -> str:
+    return rule_condition(value)
+
+
 def render_rules(items: list[dict]) -> str:
     if not items:
         return t('<h2 class="section-title">行动规则</h2><p class="section-lead">本次核心导读未提炼出材料明确支持的行动规则，不额外编造建议。</p>')
     rules = []
     for item in items:
-        title = f"{t('当 ')}{item['when']}"
+        title = rule_condition_title(item['when'])
         rules.append(f'''<li class="rule-item"{source_attr(item)}><strong>{esc(title)}</strong> → {esc(item['do'])} <em>（{esc(item['because'])}）</em>{deep_button(title, item['source'])}</li>''')
     return f"""{t('<h2 class="section-title">把方法论压缩成下一步动作</h2><p class="section-lead">共 ')}{len(items)}{t(' 条规则，覆盖材料中的主要判断与行动场景。统一采用“当 X，做 Y，因为 Z”，按页面向下滚动即可连续阅读。</p><div class="content-stream"><ul class="rules">')}""" + ''.join(rules) + '</ul></div>'
 
@@ -752,7 +765,7 @@ def render_notes(items: list[dict]) -> str:
     cards = []
     for item in items:
         title = item.get('title', t('要点'))
-        cards.append(f'''<article class="note"{source_attr(item)}><h3>{esc(title)}</h3><p>{esc(item.get('body'))}</p>{deep_button(title, item.get('source', ''))}</article>''')
+        cards.append(f'''<article class="note"{source_attr(item)}><h3>{esc(title)}</h3><p>{esc(item.get('body'))}</p>{render_card_source(item)}{deep_button(title, item.get('source', ''))}</article>''')
     return '<div class="grid">' + ''.join(cards) + '</div>' if cards else ''
 
 
@@ -814,39 +827,39 @@ def markdown_signature(section: dict) -> list[str]:
     lines: list[str] = []
     if signature == 'causal_chain':
         for index, item in enumerate(section['chain'], start=1):
-            lines.extend([f"### {index}. {item['label']}", '', item['body'], f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {index}. {item['label']}", '', item['body'], f"{t('出处：')}{display_source(item['source'])}", ''])
     elif signature == 'type_selector':
         for item in section['options']:
-            lines.extend([f"### {item['label']}｜{item['title']}", '', item['body'], '', f"{t('判断重点：')}{item['watch']}", f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['label']}｜{item['title']}", '', item['body'], '', f"{t('判断重点：')}{item['watch']}", f"{t('出处：')}{display_source(item['source'])}", ''])
     elif signature == 'matrix':
         headers = [t('选项'), *section['dimensions'], t('出处')]
         lines.extend(['| ' + ' | '.join(headers) + ' |', '| ' + ' | '.join(['---'] * len(headers)) + ' |'])
         for item in section['rows']:
-            cells = [item['option'], *item['scores'], item['source']]
+            cells = [item['option'], *item['scores'], display_source(item['source'])]
             lines.append('| ' + ' | '.join((md_cell(value) for value in cells)) + ' |')
         lines.append('')
     elif signature == 'timeline':
         for item in section['events']:
-            lines.extend([f"### {item['time']}｜{item['title']}", '', item['body'], f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['time']}｜{item['title']}", '', item['body'], f"{t('出处：')}{display_source(item['source'])}", ''])
     elif signature == 'decision_tree':
         for item in section['branches']:
-            lines.extend([f"### {item['question']}", '', item['reasoning'], f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['question']}", '', item['reasoning'], f"{t('出处：')}{display_source(item['source'])}", ''])
     elif signature == 'questions':
         for item in section['questions']:
-            lines.extend([f"### {item['title']}", '', item['hint'], f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['title']}", '', item['hint'], f"{t('出处：')}{display_source(item['source'])}", ''])
     elif signature == 'story_card':
         for item in section['stories']:
-            lines.extend([f"### {item['label']}｜{item['title']}", '', item['body'], '', f"{t('案例启示：')}{item['insight']}", f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['label']}｜{item['title']}", '', item['body'], '', f"{t('案例启示：')}{item['insight']}", f"{t('出处：')}{display_source(item['source'])}", ''])
     elif signature == 'before_after':
         for item in (section['before'], section['after']):
-            lines.extend([f"### {item['label']}｜{item['title']}", '', item['body'], f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['label']}｜{item['title']}", '', item['body'], f"{t('出处：')}{display_source(item['source'])}", ''])
     elif signature == 'accordion':
         for item in section['items']:
-            lines.extend([f"### {item['title']}", '', item['body'], f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['title']}", '', item['body'], f"{t('出处：')}{display_source(item['source'])}", ''])
     elif signature == 'quote_card':
         item = section['quote']
         quoted = '\n> '.join(item['text'].splitlines())
-        lines.extend([f'> {quoted}', '', f"— {item['attribution']}", f"{t('出处：')}{item['source']}", ''])
+        lines.extend([f'> {quoted}', '', f"— {item['attribution']}", f"{t('出处：')}{display_source(item['source'])}", ''])
     return lines
 
 
@@ -1008,37 +1021,41 @@ def markdown_output(data: dict, modules: list[tuple[str, str, str]]) -> str:
     if data['meta']['mode'] == 'overview':
         lines.extend([t('## 核心框架'), ''])
         for item in ordered_frameworks(data['frameworks']):
-            lines.extend([f"### {item['name']}", '', item['oneLine'], '', f"{t('适用：')}{item['when']}", f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['name']}", '', item['oneLine'], '', framework_condition(item['when']), f"{t('出处：')}{display_source(item['source'])}", ''])
         lines.extend([t('## 内容导学'), ''])
         for item in data['contentUnits']:
-            lines.extend([f"### {item['label']} {item['title']}", '', item['core'], '', t('关键框架：') + '、'.join(item.get('frameworks', [])), '', *[f'- {x}' for x in item.get('takeaways', [])], f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['label']} {item['title']}", '', item['core'], '', t('关键框架：') + '、'.join(item.get('frameworks', [])), '', *[f'- {x}' for x in item.get('takeaways', [])], f"{t('出处：')}{display_source(item['source'])}", ''])
             for conclusion in item.get('conclusions', []):
-                lines.extend([f"#### {conclusion['title']}", '', conclusion['summary'], '', *[f'- {point}' for point in conclusion.get('points', [])], f"{t('出处：')}{conclusion['source']}", ''])
+                lines.extend([f"#### {conclusion['title']}", '', conclusion['summary'], '', *[f'- {point}' for point in conclusion.get('points', [])], f"{t('出处：')}{display_source(conclusion['source'])}", ''])
         lines.extend([t('## 术语大全'), ''])
         glossary_unit_labels = {item['id']: f"{item['label']}·{item['title']}" for item in data['contentUnits']}
         for item in ordered_glossary(data['glossary']):
             full_name = f"｜{item['fullName']}" if item.get('fullName') else ''
             meaning_lines = [f"{t('中文含义：')}{item['zhMeaning']}"] if item.get('zhMeaning') and LOCALE.get() == 'zh-CN' else []
             unit_text = '、'.join((glossary_unit_labels.get(unit_id, unit_id) for unit_id in item.get('units', [])))
-            lines.extend([f"### {item['term']}{full_name}", '', f"{t('分类：')}{localized_enum(item['category'])}", *meaning_lines, f"{t('通俗定义：')}{item['definition']}", f"{t('材料语境：')}{item['context']}", f"{t('相关术语：')}{'、'.join(item.get('related', []))}", f"{t('涉及单元：')}{unit_text}", f"{t('出处：')}{item['source']}", ''])
+            lines.extend([f"### {item['term']}{full_name}", '', f"{t('分类：')}{localized_enum(item['category'])}", *meaning_lines, f"{t('通俗定义：')}{item['definition']}", f"{t('材料语境：')}{item['context']}", f"{t('相关术语：')}{'、'.join(item.get('related', []))}", f"{t('涉及单元：')}{unit_text}", f"{t('出处：')}{display_source(item['source'])}", ''])
         lines.extend([t('## 行动规则'), ''])
         for item in data['decisionRules']:
-            lines.append(f"{t('- 当 ')}{item['when']} → {item['do']}{t('；因为 ')}{item['because']}。（{item['source']}）")
+            lines.append(f"- {rule_condition_title(item['when'])} → {item['do']}{t('；因为 ')}{item['because']}。（{display_source(item['source'])}）")
         lines.extend(['', t('## 学习自检'), '', t('HTML 页面不会平铺固定题目。请选择综合全部、指定章节或自定义要求，复制口令到材料对话中，由 AI 基于知识库逐题测验。测验结束后可将标准错题记录导回 HTML 的本地错题本。'), '', t('### 自检考点'), ''])
         unit_labels = {item['id']: f"{item['label']}·{item['title']}" for item in data['contentUnits']}
         for item in data['assessment']['focusAreas']:
-            lines.extend([f"- **{item['title']}**｜{unit_labels.get(item['unitId'], item['unitId'])}{t('｜能力：')}{', '.join((localized_enum(x) for x in item['abilities']))}{t('｜出处：')}{item['source']}"])
+            lines.extend([f"- **{item['title']}**｜{unit_labels.get(item['unitId'], item['unitId'])}{t('｜能力：')}{', '.join((localized_enum(x) for x in item['abilities']))}{t('｜出处：')}{display_source(item['source'])}"])
         lines.extend(['', t('错题只保存在 HTML 所在浏览器的本地存储中；请定期导出 JSON 备份。'), ''])
     else:
         for section in ordered_sections(data['sections']):
             lines.extend([f"## {section['title']}", '', section['lead'], ''])
             for item in section.get('notes', []):
-                lines.extend([f"### {item.get('title', t('要点'))}", '', item.get('body', ''), f"{t('出处：')}{item.get('source', '')}", ''])
+                lines.extend([f"### {item.get('title', t('要点'))}", '', item.get('body', ''), f"{t('出处：')}{display_source(item.get('source', ''))}", ''])
             lines.extend(markdown_signature(section))
     lines.extend([t('## 我的笔记'), '', t('个人笔记保存在 HTML 所在浏览器的本地存储中，不写入这份静态 Markdown。可在网页中导出 Markdown，或用 JSON 备份和迁移。'), ''])
     footer = data.get('footer')
     if footer:
         lines.extend([t('## 页面说明'), '', footer, ''])
+    if LOCALE.get() == 'en' and data.get('sourceLabels'):
+        lines.extend(['## Original source labels', '', 'Display translations are navigation aids; these are the original citation strings.', ''])
+        for raw, label in data['sourceLabels'].items():
+            lines.extend([label, '', '> ' + raw.replace('\n', '\n> '), ''])
     return '\n'.join(lines).rstrip() + '\n' + relations_markdown(data)
 
 
@@ -1050,6 +1067,12 @@ def render(data: dict, output: Path, markdown: Path | None) -> None:
     base = translate_static(base, LOCALE.get())
     base = base.replace('<script id="pageData"', '{{extensions_markup}}\n<script id="pageData"')
     themes = '\n\n'.join(((skill_root / 'templates' / 'themes' / f'{name}.css').read_text(encoding='utf-8') for name in THEMES))
+    visual_style = (skill_root / 'templates' / 'visual-finish.css').read_text(encoding='utf-8')
+    visual_style += '\n' + (skill_root / 'templates' / 'liquid-finish.css').read_text(encoding='utf-8')
+    visual_style += '\n' + (skill_root / 'templates' / 'reader-layout.css').read_text(encoding='utf-8')
+    for token, filename in (('__INK_BRUSH__', 'ink-brush.png'), ('__PAPER_GRAIN__', 'paper-grain.png')):
+        asset = skill_root / 'assets' / 'visual' / filename
+        visual_style = visual_style.replace(token, 'data:image/png;base64,' + base64.b64encode(asset.read_bytes()).decode('ascii'))
     mode = data['meta']['mode']
     if mode in {'topic', 'unit'}:
         data = {**data, 'sections': ordered_sections(data['sections'])}
@@ -1062,9 +1085,10 @@ def render(data: dict, output: Path, markdown: Path | None) -> None:
     page_json = json.dumps(data, ensure_ascii=False, separators=(',', ':'), sort_keys=True).replace('<', '\\u003c')
     meta = data['meta']
     mode_title = {'overview': t('材料概览'), 'topic': meta.get('topic', t('主题学习')), 'unit': meta.get('unit', t('单元深读'))}[mode]
-    replacements = {'{{lang}}': LOCALE.get(), '{{title}}': esc(f"{meta['title']}｜{mode_title}"), '{{theme_style}}': themes, '{{theme_name}}': meta.get('initialTheme', 'warm-paper'), '{{body_mode}}': mode, '{{hero}}': render_hero(data['hero']), '{{learning_depth_banner}}': render_learning_depth_banner(meta), '{{tabs}}': tabs, '{{panels}}': panels, '{{footer_note}}': esc(data.get('footer', f"{t('依据“')}{meta['title']}{t('”材料知识库整理；材料原意与页面改写均保留出处。')}")), '{{component_styles}}': component_styles(len(modules)) + (skill_root / 'templates/extensions.css').read_text(encoding='utf-8'), '{{component_scripts}}': (skill_root / 'templates/extensions.js').read_text(encoding='utf-8'), '{{page_data}}': page_json}
+    replacements = {'{{lang}}': LOCALE.get(), '{{title}}': esc(f"{meta['title']}｜{mode_title}"), '{{theme_style}}': themes, '{{visual_style}}': visual_style, '{{theme_name}}': meta.get('initialTheme', 'warm-paper'), '{{body_mode}}': mode, '{{hero}}': render_hero(data['hero']), '{{learning_depth_banner}}': render_learning_depth_banner(meta), '{{tabs}}': tabs, '{{panels}}': panels, '{{footer_note}}': esc(data.get('footer', f"{t('依据“')}{meta['title']}{t('”材料知识库整理；材料原意与页面改写均保留出处。')}")), '{{component_styles}}': component_styles(len(modules)) + (skill_root / 'templates/extensions.css').read_text(encoding='utf-8'), '{{component_scripts}}': (skill_root / 'templates/extensions.js').read_text(encoding='utf-8'), '{{page_data}}': page_json}
     replacements['{{extensions_markup}}'] = extension_markup(data)
-    replacements['{{component_scripts}}'] = (skill_root / 'templates/graph-studio.js').read_text(encoding='utf-8') + '\n' + replacements['{{component_scripts}}']
+    replacements['{{presentation_script}}'] = (skill_root / 'templates/source-presentation.js').read_text(encoding='utf-8')
+    replacements['{{component_scripts}}'] = (skill_root / 'templates/hover-bridge.js').read_text(encoding='utf-8') + '\n' + (skill_root / 'templates/scroll-chain.js').read_text(encoding='utf-8') + '\n' + (skill_root / 'templates/graph-studio.js').read_text(encoding='utf-8') + '\n' + replacements['{{component_scripts}}']
     from methodology_ui import overview_markup, content_sources
     if mode == 'overview':
         source_markup = content_sources(data['contentUnits'][0], meta.get('language', 'zh-CN'))
@@ -1072,7 +1096,12 @@ def render(data: dict, output: Path, markdown: Path | None) -> None:
         replacements['{{extensions_markup}}'] += overview_markup(data)
         replacements['{{component_styles}}'] += (skill_root / 'templates/methodology.css').read_text(encoding='utf-8')
         replacements['{{component_scripts}}'] += '\n' + (skill_root / 'templates/methodology.js').read_text(encoding='utf-8')
+        replacements['{{component_scripts}}'] += '\n' + (skill_root / 'templates/framework-routing.js').read_text(encoding='utf-8')
+        replacements['{{component_scripts}}'] += '\n' + (skill_root / 'templates/relationship-mindmap.js').read_text(encoding='utf-8')
     replacements['{{component_styles}}'] += (skill_root / 'templates/graph-studio.css').read_text(encoding='utf-8')
+    if mode == 'overview':
+        replacements['{{component_styles}}'] += (skill_root / 'templates/relationship-mindmap.css').read_text(encoding='utf-8')
+    replacements['{{component_scripts}}'] += '\n' + (skill_root / 'templates/visual-interactions.js').read_text(encoding='utf-8')
     leftovers = sorted(set(re.findall('\\{\\{[^{}]+\\}\\}', base)))
     unknown = set(leftovers) - set(replacements)
     if unknown:
@@ -1080,6 +1109,12 @@ def render(data: dict, output: Path, markdown: Path | None) -> None:
     # Only substitute the original template. Material may legitimately contain {{...}}.
     base = re.sub(r'\{\{[^{}]+\}\}', lambda match: replacements[match.group()], base)
     output.parent.mkdir(parents=True, exist_ok=True)
+    if LOCALE.get() == 'en' and data.get('sourceLabels'):
+        source_index = '<details class="source-original source-label-index"><summary>Original source labels</summary>'
+        for raw, label in data['sourceLabels'].items():
+            source_index += '<p>' + esc(label) + '</p><p class="source-original-text">' + esc(raw) + '</p>'
+        source_index += '</details>'
+        base = base.replace('</main>', source_index + '</main>', 1)
     output.write_text(base, encoding='utf-8')
     if markdown:
         markdown.parent.mkdir(parents=True, exist_ok=True)
@@ -1093,12 +1128,16 @@ def main() -> None:
     parser.add_argument("--markdown", "-m", type=Path)
     parser.add_argument("--knowledge-base", "-k", type=Path)
     parser.add_argument("--check-only", action="store_true")
-    parser.add_argument("--legacy", action="store_true", help="Explicitly re-render an old page without v0.5 delivery requirements; never use for new overviews")
+    parser.add_argument("--legacy", action="store_true", help="Explicitly re-render an old page without current delivery requirements; never use for new overviews")
     args = parser.parse_args()
     try:
         content_json = args.content_json.resolve()
         data = json.loads(content_json.read_text(encoding="utf-8"))
         validate(data)
+        label_errors = []
+        validate_labels(data, label_errors, require_complete=not args.legacy)
+        if label_errors:
+            raise ValueError("Source presentation validation failed: " + "; ".join(label_errors))
         exports = {}
         if data['meta']['mode'] == 'overview' and not args.legacy:
             from verify_coverage import resolve_kb_dir
@@ -1130,7 +1169,7 @@ def main() -> None:
             if args.markdown and 'methodology' in data:
                 from methodology import markdown as methodology_markdown
                 with args.markdown.open('a', encoding='utf-8') as stream:
-                    stream.write('\n' + methodology_markdown(data['methodology']))
+                    stream.write('\n' + methodology_markdown(data['methodology'], source_labels=data.get('sourceLabels')))
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(2)
@@ -1142,5 +1181,7 @@ def main() -> None:
             print(f"✅ Markdown -> {args.markdown}")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
     main()

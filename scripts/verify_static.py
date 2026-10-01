@@ -274,5 +274,7 @@ def main() -> None:
     print("✅ 静态验证全部通过")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    from cli_output import configure_output
+    configure_output()
     main()

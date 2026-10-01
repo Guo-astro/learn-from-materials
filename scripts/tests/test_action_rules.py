@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 from action_rules import SCHEMA, RELATION_REVIEW_TYPES, validate
 from verify_relations import check_page
 from finalize import finalize
+from content_review import SCHEMA as REVIEW_SCHEMA, fingerprints
 
 
 class ActionRuleLedgerTests(unittest.TestCase):
@@ -31,8 +32,8 @@ class ActionRuleLedgerTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.page = json.loads((ROOT / 'examples/overview-whole-methodology.json').read_text(encoding='utf-8'))
-        cls.kb = ROOT / 'examples/rsi-methodology.learnkb'
+        cls.page = json.loads((ROOT / 'examples/overview-systematic-demo.json').read_text(encoding='utf-8'))
+        cls.kb = ROOT / 'examples/systematic-demo.learnkb'
         cls.audit = json.loads((cls.kb / 'coverage-audit.json').read_text(encoding='utf-8'))
         cls.blocks = {b['source_id']: b for b in json.loads((cls.kb / 'source_map.json').read_text(encoding='utf-8'))}
         cls.raw = (cls.kb / 'full_text.txt').read_text(encoding='utf-8')
@@ -46,8 +47,8 @@ class ActionRuleLedgerTests(unittest.TestCase):
                         mapped[uid].append(b['sourceId'])
         candidates = []
         for rule in self.page['decisionRules']:
-            # This synthetic ledger is a structural fixture, not an assertion that
-            # the existing demo exhaustively represents the original paper.
+            # This synthetic ledger exercises structural mappings. The example's
+            # authored source review is kept separately in its knowledge base.
             sid, uid = next((sid, uid) for uid, ids in mapped.items() for sid in ids if ids)
             block = self.blocks[sid]
             passage = self.raw[block['start_char']:block['end_char']]
@@ -135,23 +136,84 @@ class ActionRuleLedgerTests(unittest.TestCase):
         validate(ledger, page, self.kb)
         self.assertFalse(check_page(page, ledger=ledger).errors)
 
-    def test_new_delivery_includes_checked_ledger_and_linked_rule_details(self):
+    def test_new_delivery_rejects_missing_heading_index_without_bypass(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             kb = root / 'source.learnkb'
             shutil.copytree(self.kb, kb)
             (kb / 'action-rule-ledger.json').write_text(json.dumps(self.ledger(), ensure_ascii=False), encoding='utf-8')
-            result = finalize(ROOT / 'examples/overview-whole-methodology.json', kb, root / 'out', 'new')
+            self.write_structural_review(kb)
+            (kb / 'source-heading-index.json').unlink()
+            with self.assertRaisesRegex(ValueError, 'source-heading-index'):
+                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new')
+            self.assertFalse(any((root / 'out').glob('*')))
+
+    def test_isolated_ledger_packaging_and_linked_rule_details(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            kb = root / 'source.learnkb'
+            shutil.copytree(self.kb, kb)
+            (kb / 'action-rule-ledger.json').write_text(json.dumps(self.ledger(), ensure_ascii=False), encoding='utf-8')
+            self.write_structural_review(kb)
+            result = finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new')
             manifest = json.loads(Path(result['manifest']).read_text(encoding='utf-8'))
             self.assertIn('action-rule-ledger', manifest['checks'])
+            self.assertIn('content-review', manifest['checks'])
+            self.assertEqual(manifest['status'], 'static-only')
+            self.assertEqual(manifest['visualReview'], 'not-run')
+            self.assertEqual(manifest['semanticReview'], 'recorded-not-machine-proven')
             self.assertTrue((root / 'out' / 'new.learnkb' / 'action-rule-ledger.json').is_file())
             html = Path(result['html']).read_text(encoding='utf-8')
             self.assertIn('method-linked-rules', html)
             self.assertIn('关联行动规则', html)
-            checked = subprocess.run([sys.executable, str(ROOT / 'scripts/verify_relations.py'),
-                                      str(ROOT / 'examples/overview-whole-methodology.json'),
-                                      '--knowledge-base', str(kb)], text=True, capture_output=True)
+            checked = subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'scripts/verify_relations.py'),
+                                      str(ROOT / 'examples/overview-systematic-demo.json'),
+                                      '--knowledge-base', str(kb)], text=True, encoding='utf-8', capture_output=True)
             self.assertEqual(checked.returncode, 0, checked.stderr + checked.stdout)
+
+    def write_structural_review(self, kb):
+        # Synthetic mappings exercise plumbing, not semantic truth.
+        # Dedicated content-review tests document this limit explicitly.
+        audit = copy.deepcopy(self.audit)
+        claims = json.loads((kb / 'summary-ledger.json').read_text(encoding='utf-8'))['claims']
+        sources = {u['id']: set() for u in self.page['contentUnits']}
+        for block in audit['sourceBlocks']:
+            if block['status'] == 'covered':
+                block['mappedClaims'] = [c['id'] for c in claims if c['unitId'] in block['mappedUnits']]
+                for uid in block['mappedUnits']:
+                    sources[uid].add(block['sourceId'])
+        def ev(sid):
+            b = self.blocks[sid]
+            return dict(kind='text', sourceId=sid, quote=self.raw[b['start_char']:b['end_char']][:20])
+        note = 'Synthetic structural fixture; does not attest semantic accuracy'
+        review = dict(schemaVersion=REVIEW_SCHEMA, pageId=self.page['meta']['pageId'], learningDepth='systematic',
+            reviewedInputs={},
+            unitReviews=[dict(unitId=uid, status='completed', sourceIds=sorted(sids), findings=note,
+                              evidence=[ev(sid) for sid in sorted(sids)]) for uid, sids in sources.items()],
+            claimReviews=[dict(claimId=c['id'], status='supported', note=note,
+                               evidence=[ev(sid) for sid in sorted(sources[c['unitId']])]) for c in claims],
+            ruleReviews=[dict(ruleId=c['targetRuleId'], status='supported', note=note,
+                              evidence=[ev(c['sourceIds'][0])]) for c in self.ledger()['candidates']],
+            enumeratedLists=dict(status='searched', sourceIds=sorted(set().union(*sources.values())), note=note, lists=[]))
+        (kb / 'coverage-audit.json').write_text(json.dumps(audit, ensure_ascii=False), encoding='utf-8')
+        review['reviewedInputs'] = fingerprints(self.page, kb)
+        (kb / 'content-review.json').write_text(json.dumps(review, ensure_ascii=False), encoding='utf-8')
+
+    def test_new_delivery_rejects_missing_or_stale_review_before_publish(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            kb = root / 'source.learnkb'
+            shutil.copytree(self.kb, kb)
+            (kb / 'action-rule-ledger.json').write_text(json.dumps(self.ledger()), encoding='utf-8')
+            (kb / 'content-review.json').unlink()
+            with self.assertRaisesRegex(ValueError, 'content-review.json is required'):
+                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new')
+            self.write_structural_review(kb)
+            with (kb / 'full_text.txt').open('a', encoding='utf-8') as f:
+                f.write('\nChanged input')
+            with self.assertRaisesRegex(ValueError, 'stale reviewedInputs'):
+                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new')
+            self.assertFalse(any((root / 'out').glob('*')))
 
 
 if __name__ == '__main__':

@@ -1,8 +1,12 @@
-# 示例说明
+# Current examples
 
-- `overview-content.json`：用于演示页面内容契约和回归测试。
-- `示例方法材料.learnkb/`：合成的知识库 fixture，用于测试总结映射、覆盖规则与页面渲染。
-- `learn-from-materials-demo.html`：由固定渲染器生成、可直接在浏览器打开的单文件演示页。
-- `learn-from-materials-demo.md`：与演示页内容同步的 Markdown 版本。
+- `overview-methods-content.json`: complete current English quick-overview data bound to `methods-demo.learnkb/`.
+- `overview-current-zh.json`: complete current Chinese quick-overview data bound to `methods-demo-zh.learnkb/`.
+- `overview-en-content.json`: pre-binding input retained for method-binding tests; use the bound current examples as the authoring reference.
+- `methods-library-demo.html` / `features-en.html`: English current-design previews.
+- `features-zh.html` / `learn-from-materials-demo.html`: Chinese current-design previews.
+- `method-lab-synthetic.pdf`: original three-page English teaching material, distributed under MIT; not a real research paper.
+- `overview-systematic-demo.json` / `systematic-demo.learnkb/`: current Chinese systematic-study example with a source-heading index, coverage/summary records, a v2 action-rule ledger and a source-first content review.
+- `systematic-demo.html` / `systematic-demo.md`: rendered systematic example from the same data and canonical method files.
 
-这些文件不对应真实书籍或 PDF，也不应被引用为真实材料的审计结论。`source_file` 使用虚构的相对路径，避免暴露任何本机目录。
+The Method Lab examples and their knowledge bases are self-authored synthetic teaching material under MIT. No real paper full text or its derived knowledge base is bundled. Raw source quotes remain English in either locale. Current JSON examples include canonical methods and an explicitly labeled integrated structure. Compatibility data lives under `scripts/tests/fixtures/`; do not use it to author a new overview. HTML examples demonstrate code and interaction; browser visual acceptance is reported separately.

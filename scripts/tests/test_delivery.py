@@ -16,9 +16,9 @@ from finalize import finalize
 
 class DeliveryTests(unittest.TestCase):
     def setUp(self):
-        self.page_file=SCRIPTS.parent/'examples/overview-whole-methodology.json'
+        self.page_file=SCRIPTS.parent/'examples/overview-systematic-demo.json'
         self.page=json.loads(self.page_file.read_text(encoding='utf-8'))
-        self.kb=SCRIPTS.parent/'examples/rsi-methodology.learnkb'
+        self.kb=SCRIPTS.parent/'examples/systematic-demo.learnkb'
 
     def test_missing_snapshot_cannot_pass(self):
         page=copy.deepcopy(self.page);page.pop('methodology')
@@ -68,8 +68,11 @@ class DeliveryTests(unittest.TestCase):
 
     def test_new_systematic_delivery_requires_ledger(self):
         with tempfile.TemporaryDirectory() as t:
+            kb=Path(t)/'source.learnkb'
+            shutil.copytree(self.kb,kb)
+            (kb/'action-rule-ledger.json').unlink()
             with self.assertRaisesRegex(ValueError,'action-rule-ledger.json'):
-                finalize(self.page_file,self.kb,t,'review')
+                finalize(self.page_file,kb,Path(t)/'out','review')
 
     def test_validation_failure_leaves_no_delivery_and_allows_retry(self):
         from unittest.mock import patch

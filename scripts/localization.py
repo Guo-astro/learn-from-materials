@@ -3,6 +3,7 @@ from contextvars import ContextVar
 from functools import lru_cache, wraps
 from pathlib import Path
 import re
+from source_presentation import SOURCE_LABELS
 
 LOCALE = ContextVar('learning_page_locale', default='zh-CN')
 
@@ -29,9 +30,11 @@ def localized(function):
     @wraps(function)
     def wrapped(data, *args, **kwargs):
         token = LOCALE.set((data.get('meta') or {}).get('language', 'zh-CN'))
+        source_token = SOURCE_LABELS.set(data.get('sourceLabels', {}))
         try:
             return function(data, *args, **kwargs)
         finally:
+            SOURCE_LABELS.reset(source_token)
             LOCALE.reset(token)
     return wrapped
 

@@ -41,3 +41,5 @@
 
 本仓库新增与修改内容按同一 MIT License 发布，具体贡献者以 Git 提交历史为准。
 根目录 `assets/icon.svg` 为本仓库原创的简化书本图形，不使用第三方商标。
+
+`examples/` 下的 Method Lab 文本、`method-lab-synthetic.pdf` 及对应示例知识库为本仓库自编的合成教学与测试材料，按 MIT License 发布。它们不是已发表论文，也不代表实证研究结论。本次发布不包含真实论文全文或其派生知识库。

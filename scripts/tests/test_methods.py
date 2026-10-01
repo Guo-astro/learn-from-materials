@@ -123,16 +123,17 @@ class MethodTests(unittest.TestCase):
 
     def test_cli_export_bind_render_index_search_compare(self):
         def run(script,*args):
-            result=subprocess.run([sys.executable,str(SCRIPTS/script),*[str(a) for a in args]],capture_output=True,text=True)
+            result=subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/script),*[str(a) for a in args]],capture_output=True,text=True,encoding='utf-8')
             self.assertEqual(result.returncode,0,result.stderr)
             return result.stdout
         with tempfile.TemporaryDirectory() as tmp:
-            tmp=Path(tmp);lib=self.kb/'methods.json'
-            run('methods.py','export','--library',lib,'--knowledge-base',self.kb,'--output',tmp/'patterns.md')
+            tmp=Path(tmp);kb=tmp/'test.learnkb';shutil.copytree(self.kb,kb);lib=kb/'methods.json'
+            run('methods.py','export','--library',lib,'--knowledge-base',kb,'--output',tmp/'patterns.md')
             self.assertEqual((tmp/'patterns.md').read_text(encoding='utf-8'),patterns(self.lib))
-            run('methods.py','bind','--library',lib,'--knowledge-base',self.kb,'--page',self.examples/'overview-en-content.json','--output',tmp/'page.json')
-            # This v0.3 fixture has no whole-material record: explicit legacy path.
-            run('render_page.py',tmp/'page.json','-k',self.kb,'-o',tmp/'page.html','--legacy')
+            run('methods.py','bind','--library',lib,'--knowledge-base',kb,'--page',self.examples/'overview-en-content.json','--output',tmp/'page.json')
+            # The English fixture now includes a source-checked whole-material
+            # model and goes through the regular quick-mode delivery gates.
+            run('render_page.py',tmp/'page.json','-k',kb,'-o',tmp/'page.html')
             self.assertEqual(verify_static(tmp/'page.html')[0],[])
             run('methods.py','index',lib,'--output',tmp/'index.json')
             result=json.loads(run('methods.py','search','--index',tmp/'index.json','--query','boundary'))

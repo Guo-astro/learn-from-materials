@@ -1,4 +1,4 @@
-"""Required canonical artifacts and deterministic readable exports for v0.5."""
+"""Required canonical artifacts and deterministic readable exports."""
 import hashlib
 import json
 from pathlib import Path

@@ -51,6 +51,22 @@
       ],
       "quote": "These methods are complementary tools",
       "checked": true
+    },
+    {
+      "source": "methods-demo.txt · Lines 6-10",
+      "sourceIds": [
+        "src-e3be302578cd-document-00001"
+      ],
+      "quote": "Separate observations from explanations.",
+      "checked": true
+    },
+    {
+      "source": "methods-demo.txt · Lines 12",
+      "sourceIds": [
+        "src-e3be302578cd-document-00001"
+      ],
+      "quote": "These methods are complementary tools, not a guarantee of success.",
+      "checked": true
     }
   ],
   "limitations": [

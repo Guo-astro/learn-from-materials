@@ -1,6 +1,6 @@
-# Reusable methodology files (v0.3.0-beta.1)
+# Reusable methodology files (v1.0.3)
 
-v0.4 adds the separate canonical `methodology.json` plus generated `methodology.md` for the whole material; read `whole-material-methodology.md`. This is a labeled analytical layer with entry points, handoffs, branches and feedback, not another original-source method card. Keep `methods.json` and its indexing/lineage behavior intact. New overview prompts default to the integrated structure; single-card use remains supported.
+The skill includes the separate canonical `methodology.json` plus generated `methodology.md` for the whole material; read `whole-material-methodology.md`. This is a labeled analytical layer with entry points, handoffs, branches and feedback, not another original-source method card. Keep `methods.json` and its indexing/lineage behavior intact. New overview prompts default to the integrated structure; single-card use remains supported.
 
 ## Scope and extraction
 
@@ -36,7 +36,7 @@ All source IDs and quotes are checked against current extraction ranges and SHA-
 
 ## Generation workflow
 
-1. Complete the original extraction and depth-appropriate coverage workflow.
+1. Complete the original extraction and depth-appropriate coverage workflow. In systematic mode, review method candidates source block by source block, record their dispositions in `coverage-audit.md`, and reconcile the candidate list against `methods.json`, framework/rule cards and `methodology.json`. Card count is never the completion criterion.
 2. Write source-grounded cards to `<topic>.learnkb/methods.json`. Reuse matching framework/rule IDs. Conceptual nodes without a procedural method can remain unbound.
 3. Validate, generate patterns.md, and bind to page JSON. Binding projects name/summary/when/rationale/source from the method card into matching page nodes and embeds a snapshot for offline prompts. It never changes evidence or invents relationships.
 4. Run the normal page renderer and coverage gate on the bound JSON, including updated audit/summary records if method projection changed a material summary. Do not bypass the original coverage checks.
@@ -73,4 +73,4 @@ Compare purpose, prerequisites, sequence, inputs, outputs, checks, evidence and 
 - Complementary methods: propose an ordered workflow and explain each hand-off, assumptions and failure conditions.
 - Conflicting methods: preserve disagreement and different conditions instead of forcing agreement.
 
-The compare command exports selected cards for analysis; it does not declare compatibility or merge them. If the user asks for synthesis, create a new card with a new ID, `evidence: "synthesis"`, at least two parents and explicit assumptions/limits, in a separate derived-method collection. Keep full parent cards accessible. The index rejects unresolved parent references and cycles. Do not insert inferred/synthesized cards into original material-fact page modules; they can be retrieved and applied as explicitly labeled proposals. This beta supplies lineage and comparison infrastructure, not one-click automatic semantic merging.
+The compare command exports selected cards for analysis; it does not declare compatibility or merge them. If the user asks for synthesis, create a new card with a new ID, `evidence: "synthesis"`, at least two parents and explicit assumptions/limits, in a separate derived-method collection. Keep full parent cards accessible. The index rejects unresolved parent references and cycles. Do not insert inferred/synthesized cards into original material-fact page modules; they can be retrieved and applied as explicitly labeled proposals. The skill supplies lineage and comparison infrastructure, not one-click automatic semantic merging.

@@ -6,11 +6,29 @@ Use SKILL.md's language priority before the first reply or learning-depth questi
 
 An English request with a Chinese PDF produces English explanations and UI, preserving original quotations/source names. A Chinese request with an English paper produces Chinese explanations. “Please output in English” overrides a Chinese conversation. Pasted English material is not itself an English user request. Keep `pageId` and method IDs stable on regeneration; switching the UI locale alone does not translate existing content.
 
+### Localized citation labels
+
+`sourceLabels` is an optional top-level object in schema 4.3: exact original `source`/`locator`/`sourceDetails` strings are keys; display strings in the page language are values. New English deliveries require reviewed labels for Chinese title or heading text. A filename may retain Chinese; purely numeric Chinese locator syntax is formatted automatically without inventing a title. Example:
+
+```json
+{
+  "sourceLabels": {
+    "第1章《冒险家》 · 原书第009页 · PDF第017页": "Chapter 1 “Adventurers” · Printed p. 009 · PDF p. 017"
+  }
+}
+```
+
+The model reviews the title translation against the source. The renderer verifies that keys exist in canonical data, numeric identifiers remain unchanged, and chapter / printed-page / PDF-page assignments match. The translated title is a presentation translation, not an independently verified official English edition title. Original filenames may stay in their language. Keep the original citation and exact quotation available; never replace canonical evidence with display text. In an English page, cards, source hovers, guided-source disclosures and both graph details use the localized labels. Existing pages may use the explicit legacy rendering route; its syntax-only fallback does not prove a title was translated or reviewed.
+
+Condition fields remain canonical prose. The shared renderer adds a needed `Applies when:` or `When`, or a Chinese prefix, and collapses duplicated prefixes. It preserves a complete phrase's casing and punctuation. Do not write `Applies when: When…` / `当 当…`. Complete phrases such as Before/After/During/If remain complete phrases; Chinese word beginnings such as 当前 and 当地 must not be stripped. This applies to framework cards, rule cards, graph details and derived page Markdown.
+
+For bilingual layout verification, include long chapter/source names, line wrapping, unbroken technical identifiers and 200% text/zoom. Tab width follows content and the number badge does not shrink. A card expands with its text and source disclosure; its source is not a pseudo-element overlay. Do not reduce English font size just to hide an overflow.
+
 ## Extract logic before drawing
 
-v0.5: For new overview pages read `whole-material-methodology.md` and `diagram-design-and-delivery.md`. Core frameworks shows cards first and offers a framework-only relationship map using relationships. Action rules shows the whole-material structure from methodology.json and the application button. Both diagrams preserve all nodes without pagination; neither replaces the other.
+For new overview pages read `whole-material-methodology.md` and `diagram-design-and-delivery.md`. Core frameworks shows cards first and offers a framework-only relationship map using relationships. Action rules shows the whole-material structure from methodology.json and the application button. Both diagrams preserve all nodes without pagination; neither replaces the other.
 
-For overview pages, identify source-backed frameworks and action rules and assign unique stable `id` values across both arrays. Generate optional top-level `relationships` from actual arguments, dependencies and applications. Never connect nodes merely to fill the diagram.
+For overview pages, identify source-backed frameworks and action rules and assign unique stable `id` values across both arrays. Generate the required top-level `relationships` array from actual arguments, dependencies and applications; it may be empty only under the applicable reviewed-absence rules. Never connect nodes merely to fill the diagram.
 
 Every edge requires exactly `id/from/to/type/explanation/evidence/source`. Endpoints reference two different existing framework/rule IDs. Directions:
 
@@ -35,6 +53,14 @@ For each new systematic overview, review the visible framework graph by relation
 ```
 
 Legacy pages without methodology retain framework cards and their relationship map. New pages place the complete whole-material structure in Action rules, alongside the original rule cards. Core frameworks always opens with framework cards and can switch to its own relationship map. No separate seventh module or model-authored layout code is needed.
+
+For frameworks without a recorded framework-to-framework edge, use “暂未建立连线” / “No links recorded yet”. Node details say “本图暂未建立该框架与其他框架的连线；需要关系解释时仍须核对原材料。” / “No links to other frameworks are recorded in this view yet; check the original material before interpreting this absence.” Do not claim that the source itself provides no relationships merely because the page graph is empty. Preserve the systematic ledger's reviewed absence/independent-framework reasons and its content gate.
+
+## Relationship display names
+
+Canonical relation enums describe meaning; reader-facing wording can be simpler. Keep enums, edge IDs, directions, conditions, evidence and source locators unchanged when changing display names. In the methodology map, `main` displays “接着做” / “Next” and `branch` displays “满足条件才做” / “Only when conditions are met”. Use a branch only when the cited condition controls whether that path applies; do not relabel every parallel or supporting relation as a branch.
+
+For `feedback`, display the concrete canonical condition, such as “未通过：修正方案” / “Validation fails: revise the proposal”. Do not replace it with a vague return instruction, invent a repair condition or rewrite colons inside ratios, times or URLs. Explain the destination, what returns and why in the shared details. Chinese details show `源节点 → 目标节点（关系）`; English details show `Source → Target (Relationship)`. These parentheses belong to detail metadata, not to the inline graph chip. Explanatory strings must be generated in the output language; preserving original quotations and exact locators is intentional.
 
 ## Apply the material's methods
 

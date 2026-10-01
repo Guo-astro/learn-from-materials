@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from html.parser import HTMLParser
+from html import unescape
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
@@ -98,9 +99,36 @@ class FeatureTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             render(self.data, Path(directory) / 'en.html', None)
             self.assertEqual(LOCALE.get(), 'zh-CN')
-            old = json.loads((self.root / 'examples/overview-content.json').read_text(encoding='utf-8'))
+            old = json.loads((self.root / 'scripts/tests/fixtures/compat-4.2.json').read_text(encoding='utf-8'))
             render(old, Path(directory) / 'zh.html', None)
             self.assertIn('<html lang="zh-CN"', (Path(directory) / 'zh.html').read_text(encoding='utf-8'))
+
+    def test_action_conditions_have_one_display_prefix_in_html_and_markdown(self):
+        cases = {
+            'zh': [('当图表显示订单改善', '当图表显示订单改善'),
+                   ('图表显示订单改善', '当 图表显示订单改善'),
+                   ('  当图表显示订单改善  ', '当图表显示订单改善')],
+            'en': [('When demand rises', 'When demand rises'),
+                   ('demand rises', 'When demand rises'),
+                   ('  WHEN demand rises  ', 'WHEN demand rises')],
+        }
+        for language, conditions in cases.items():
+            example = 'scripts/tests/fixtures/compat-zh.json' if language == 'zh' else 'examples/overview-en-content.json'
+            original = json.loads((self.root / example).read_text(encoding='utf-8'))
+            for condition, expected in conditions:
+                data = copy.deepcopy(original)
+                data['decisionRules'][0]['when'] = condition
+                with self.subTest(language=language, condition=condition), tempfile.TemporaryDirectory() as directory:
+                    page, markdown = Path(directory) / 'page.html', Path(directory) / 'page.md'
+                    render(data, page, markdown)
+                    html = page.read_text(encoding='utf-8')
+                    titles = [unescape(value) for value in re.findall(r'<li class="rule-item"[^>]*><strong>(.*?)</strong>', html)]
+                    self.assertEqual(titles[0], expected)
+                    self.assertTrue(any(line.startswith(f'- {expected} → ') for line in markdown.read_text(encoding='utf-8').splitlines()))
+                    errors, _, embedded = verify_static(page)
+                    self.assertEqual(errors, [])
+                    self.assertEqual(embedded['decisionRules'][0]['when'], condition)
+                    self.assertEqual(embedded['meta']['pageId'], original['meta']['pageId'])
 
     def test_schema_43_requires_language_and_method_ids(self):
         for missing in ('language', 'id'):
@@ -156,12 +184,12 @@ class FeatureTests(unittest.TestCase):
     def test_english_ranges_still_checked(self):
         for regex, source in [(PDF_RANGE, 'PDF pp. 12-14'), (SLIDE_RANGE, 'Slides 12-14'), (EPUB_RANGE, 'EPUB sections 12-14')]:
             self.assertEqual(regex.search(source).groups(), ('12', '14'))
-        old = json.loads((self.root / 'examples/overview-content.json').read_text(encoding='utf-8'))
+        old = json.loads((self.root / 'scripts/tests/fixtures/compat-4.2.json').read_text(encoding='utf-8'))
         old['frameworks'][0]['source'] = 'Chapter 1: Example · PDF pp. 999-1000'
         with tempfile.TemporaryDirectory() as directory:
             page = Path(directory) / 'page.json'
             page.write_text(json.dumps(old), encoding='utf-8')
-            errors = verify_coverage(page, self.root / 'examples/示例方法材料.learnkb')
+            errors = verify_coverage(page, self.root / 'scripts/tests/fixtures/legacy.learnkb')
             self.assertTrue(any('source_map' in error for error in errors))
 
 

@@ -1,5 +1,48 @@
 # 更新日志 / Changelog
 
+## 1.0 release · 2026-10-01
+
+相对于上一公开版本 `v0.2.0`，本次发布整理了内容复核、交付流程、图形交互和示例资料。中英文输出、方法库、全文方法论及关系图已在 `v0.2.0` 提供，本次继续保留并改进。
+
+### 内容复核与兼容性
+
+- 新系统学习交付增加 `content-review.json`：从原材料开始第二遍复核，逐单元检查总结、行动规则和封闭数量清单，并把记录绑定到当前输入版本。更新材料或总结后，过期记录不能通过交付。
+- 继续要求 v2 行动规则/关系台账及系统学习 PDF 的原文标题索引；规范方法文件、页面快照及可读导出保持一致。旧页面可继续阅读；旧知识库重新交付须重新复核，或按文档使用明确的兼容选项。
+- 英文页面支持已复核的 `sourceLabels` 展示译名，同时保留原文引文和规范定位；检查章节、印刷页码及 PDF 物理页码的对应关系。
+
+### 阅读与图形交互
+
+- 更新液态玻璃样式、三套主题、中英文导航、出处排版及条件文案；框架关系图支持折叠分组，无已记录连线的框架保留为响应式卡片网格。
+- 搜索列出全部匹配框架；节点和连线选择展示对应关系，展开全部保留循环和交叉边。长标签按字体与节点尺寸换行，连线预留标签空隙并绕开障碍。
+- 改进框架图与方法论图的浮片滚动隔离、键盘说明及全屏布局；两张图分别验证。保留 16 张用户提供的中英文展示截图，并明确其演示用途。
+
+### 流程与 Windows 修复
+
+- 快速了解统一为规范方法绑定、最终展示出处复核、轻量索引及 `finalize.py` 交付；不增加系统学习专属的全量台账要求。
+- 初始交付明确标记为 `static-only`，视觉检查状态为 `not-run`；浏览器核验和记录单独执行。内容检查证明结构、引用及记录一致性，不能代替语义判断或保证零遗漏。
+- Windows 命令行保留调用者编码，无法显示的符号转义输出，避免检查通过后因输出日志而失败；Poppler 正文明确按 UTF-8 读取，诊断流编码不再干扰正文提取。
+- 暂存交付对短暂 Windows 文件锁进行有限重试；交付排除可重建缓存，保留原文、来源映射及安全/性能报告。
+- Git 换行规则保留示例及证据文件的原始字节，避免 Windows 检出转换后使复核哈希失效。
+
+### 示例与发布整理
+
+- 移除真实论文全文、对应生成知识库及关联 JSON/HTML/Markdown 示例；替换为 MIT 许可的自编三页 Method Lab PDF 与当前系统学习知识库，保留出处、图形及交付测试覆盖。
+- 同步两份 README、示例索引、许可说明、版本元数据与回归测试。发布版本为 `1.0`，修订为 `release`，压缩包文件名为 `learn-from-materials-1.0-release.zip`。
+- 公开更新日志按 `v0.2.0` 到 `1.0 release` 的累积差异整理，保留此前公开日志，不再将内部审阅与回滚记录作为公开版本条目。
+
+### English summary
+
+Compared with the previous public release, `v0.2.0`:
+
+- Added a source-first second-pass content review for new systematic deliveries, with input fingerprints and per-unit, claim, rule and enumerated-list records. Retained the v2 rule/relationship ledger and reviewed PDF heading requirements.
+- Added reviewed English source-label presentation without changing original quotations or canonical locators; refined themes, navigation, source layout and condition prefixes.
+- Improved framework grouping, unlinked-card grids, all-match search, long-label routing, hovercard scrolling and fullscreen behavior while retaining supported edges and stable identities.
+- Unified quick preparation with canonical binding and the shared finalizer. Initial deliveries explicitly report static validation; browser visual review remains separate.
+- Fixed CLI logging under Windows code pages and Poppler text/diagnostic decoding; retained bounded file-lock retries and excluded rebuildable caches from delivery bundles.
+- Replaced the real-paper full text and derived examples with an original MIT-licensed PDF and current systematic-study fixture. Updated both READMEs, notices, examples, metadata and regression coverage.
+
+---
+
 ## v0.2.0 · 2026-09-20
 
 相对于上一公开版本 `v0.1.0-beta`，本次更新包括：

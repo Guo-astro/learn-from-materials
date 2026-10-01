@@ -135,16 +135,28 @@ body[data-theme="dark"]{
 .diagram-sizer{position:relative;min-width:1px;min-height:1px}
 .diagram-stage{position:absolute;transform-origin:0 0}
 .diagram-wires{position:absolute;left:0;overflow:visible;pointer-events:none;z-index:0}
-.diagram-wires .diagram-wire{fill:none;stroke:var(--dg-wire);stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}
+.diagram-wires .diagram-wire{fill:none;stroke:var(--dg-wire);stroke-width:2.35;stroke-linejoin:round;stroke-linecap:round;opacity:.92}
 .diagram-wires .diagram-wire.is-feedback{stroke:var(--dg-wire-feedback)}
 /* Inference is a DISTINCT COLOUR on a solid line. Only actual feedback is gold.
    A dash pattern is deliberately avoided: it fights the draw-in animation for the
    same stroke-dasharray property, and at 1.9px it reads as a broken line. */
 .diagram-wires .diagram-wire.is-inference{stroke:var(--dg-wire-inference)}
 .diagram-wires .diagram-wire.is-dimmed{stroke:var(--dg-wire-dim)}
-.diagram-wires .diagram-wire.is-active{stroke:var(--dg-wire-active);stroke-width:2.8}
+.diagram-wires .diagram-wire.is-active{stroke:var(--dg-wire-active);stroke-width:3.2;opacity:1}
 .diagram-wires .diagram-wire.is-active.is-inference{stroke:var(--dg-wire-inference)}
 .diagram-wires .diagram-wire.is-active.is-feedback{stroke:var(--dg-wire-feedback)}
+.diagram-studio{--dg-label-bg:var(--surface-strong,var(--dg-tip-bg))}
+.diagram-wires .diagram-edge-label{pointer-events:all;cursor:pointer;opacity:1}
+.diagram-wires .diagram-edge-label rect{fill:var(--dg-label-bg);fill-opacity:1;stroke:var(--dg-wire);stroke-width:1.25;filter:drop-shadow(0 2px 3px rgba(39,57,64,.10))}
+.diagram-wires .diagram-edge-label text{fill:var(--dg-ink);font:700 11px/1 var(--font-display,system-ui);letter-spacing:.01em;pointer-events:none}
+.diagram-wires .diagram-edge-label.is-inference rect{stroke:var(--dg-wire-inference);stroke-dasharray:4 3}
+.diagram-wires .diagram-edge-label.is-feedback rect{stroke:var(--dg-wire-feedback)}
+.diagram-wires .diagram-edge-label.is-dimmed{opacity:1}
+.diagram-wires .diagram-edge-label.is-dimmed rect{stroke:var(--dg-wire-dim)}
+.diagram-wires .diagram-edge-label.is-dimmed text{fill:var(--dg-summary)}
+.diagram-wires .diagram-edge-label.is-active rect{stroke-width:2.5;fill:var(--dg-label-bg)}
+.diagram-wires .diagram-edge-label:focus-visible{outline:none}
+.diagram-wires .diagram-edge-label:focus-visible rect{stroke:var(--dg-focus);stroke-width:2.5}
 
 /* The wire draws once on first view. A selected connection gets one direction
    cue on a separate path; idle maps remain still. Reduced motion shows the
@@ -209,8 +221,8 @@ body[data-theme="dark"]{
 /* WORKAROUND (verified 2026-09-18): inside the transformed stage, backgrounds painted on
    article/div elements (and on ::before) get alpha-blended with white in some Chromium
    rendering paths, so dark cards turn light gray. Backgrounds painted on <button> elements
-   render at full strength. The card surface therefore lives on .diagram-node-button and on
-   each .diagram-transition button; the article itself stays transparent. */
+   render at full strength. The card surface therefore lives on .diagram-node-button;
+   the article itself stays transparent. */
 .diagram-card{position:absolute;z-index:1;background:transparent;border:1px solid var(--dg-card-border);border-radius:16px;box-shadow:var(--dg-card-shadow);box-sizing:border-box;overflow:hidden;border-top:3px solid var(--dg-tone-0);color:var(--dg-ink);transition:border-color .15s ease,box-shadow .15s ease}
 .diagram-card:hover,.diagram-card:focus-within{border-color:var(--dg-sel-border);box-shadow:var(--dg-sel-shadow)}
 .diagram-card[data-tone="1"]{border-top-color:var(--dg-tone-1)}
@@ -231,11 +243,6 @@ body[data-theme="dark"]{
 .diagram-tag{font-size:10px;letter-spacing:.05em;color:var(--dg-tag);max-width:170px;overflow-wrap:anywhere;text-align:right}
 .diagram-card h4{font:750 17px/1.42 var(--font-display,system-ui)!important;margin:0 0 6px!important;color:var(--dg-ink);overflow-wrap:anywhere}
 .diagram-summary{font:12px/1.6 var(--font-display,system-ui)!important;color:var(--dg-summary);margin:0!important;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
-.diagram-transitions{border-top:1px solid var(--dg-line);padding:6px 10px;display:grid;gap:3px;background:transparent}
-.diagram-transition{width:100%;border:0;background:var(--dg-trans-bg);padding:4px 6px;display:flex;align-items:baseline;gap:6px;text-align:left;cursor:pointer;color:var(--dg-trans-ink);font:11px/1.5 var(--font-display,system-ui);border-radius:6px}
-.diagram-transition:hover{background:var(--dg-trans-hover)}
-.diagram-destination{white-space:nowrap;color:var(--dg-dest-ink);font-weight:750}
-.diagram-transition-label{min-width:0;white-space:normal;overflow-wrap:anywhere}
 .diagram-studio button:focus-visible{outline:3px solid var(--dg-focus);outline-offset:2px}
 .diagram-studio.is-expanded{position:fixed;inset:12px;z-index:1000000;margin:0;box-shadow:0 0 0 30px var(--dg-scrim);display:flex;flex-direction:column}
 .diagram-studio.is-expanded .diagram-viewport{max-height:none;flex:1;min-height:0}
@@ -255,9 +262,10 @@ body[data-theme="dark"]{
 .diagram-hovercard{position:fixed;z-index:2147482000;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;padding:14px 16px;border-radius:12px;background:var(--dg-tip-bg);color:var(--dg-tip-ink);border:1px solid var(--dg-tip-border);box-shadow:0 18px 44px rgba(0,0,0,.28);font:12.5px/1.7 var(--font-display,system-ui);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s ease,transform .12s ease}
 .diagram-hovercard.is-visible{opacity:1;transform:translateY(0);pointer-events:auto}
 .diagram-hovercard h5{font:700 14px/1.5 var(--font-display,system-ui);margin:0 0 8px;color:var(--dg-tip-title)}
-.diagram-hovercard dl{display:grid;grid-template-columns:66px 1fr;gap:6px 10px;margin:0 0 8px}
-.diagram-hovercard dt{color:var(--dg-tip-label);font-weight:750}
-.diagram-hovercard dd{margin:0;overflow-wrap:anywhere}
+.diagram-hovercard dl{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;margin:0 0 12px}
+.diagram-hovercard dt{color:var(--dg-tip-label);font-weight:750;margin-top:10px}
+.diagram-hovercard dt:first-child{margin-top:0}
+.diagram-hovercard dd{margin:0 0 4px;overflow-wrap:anywhere}
 .diagram-hovercard ul{margin:0 0 6px;padding-left:18px}
 .diagram-hovercard li{margin-bottom:8px}
 .diagram-hovercard .hover-source{display:block;color:var(--dg-tip-label);font-size:11.5px}

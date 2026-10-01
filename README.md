@@ -3,18 +3,18 @@
 
 ![Icon](assets/icon.svg)
 
-> Turn books, PDFs, slides, Word documents, web pages, and multi-file material sets into traceable knowledge bases, interactive learning pages, and synced Markdown.
+> Turn books, PDFs, slides, Word documents, web pages, and multi-file material sets into traceable knowledge bases, interactive learning pages, and Markdown derived from the same content data.
 
-![Status](https://img.shields.io/badge/version-v0.2.0-blue)
+![Status](https://img.shields.io/badge/version-1.0%20release-blue)
 ![Agent Skills](https://img.shields.io/badge/standard-Agent%20Skills-5b6ee1)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-`learn-from-materials` is a cross-agent learning skill built on the open Agent Skills specification. It emphasizes complete reading, verifiable sources, a strict separation between material facts and model-added content, offline-first operation, and least privilege.
+`learn-from-materials` is a cross-agent learning skill built on the open Agent Skills specification. Systematic study emphasizes complete reading; a quick overview extracts the core argument. Both require verifiable sources, a strict separation between material facts and model-added content, offline-first operation, and least privilege.
 
 It works in agent environments that can read files, run local commands, and recognize `SKILL.md` — such as WorkBuddy, Codex, Claude Code, and GitHub Copilot CLI. Pure chat environments without file-system access or Python execution can only use parts of the prompting workflow; they cannot perform material extraction, coverage validation, or HTML rendering.
-<img width="2400" height="1600" alt="overview-en" src="https://github.com/user-attachments/assets/87ea840f-a4d2-43fb-a054-bf618e2269e0" />
 
+<img width="2400" height="1600" alt="overview-en" src="https://github.com/user-attachments/assets/87ea840f-a4d2-43fb-a054-bf618e2269e0" />
 
 ## Key Features
 
@@ -26,7 +26,7 @@ The whole structure is also saved separately as `methodology.json` / `methodolog
 
 Guided content shows source hints for core ideas, key points and conclusions on mouse hover and on keyboard focus, plus an expandable "Source" panel for touch screens. These stay available after switching units. When a verified fine-grained location exists, the matching page number is displayed; otherwise the unit-level or conclusion-level range is reported as-is.
 
-See the [whole-material methodology protocol](references/whole-material-methodology.md) and the [runnable paper example](examples/overview-whole-methodology.json). That example demonstrates the new structure and interaction; its body reuses the earlier guided summary, so the number of example entries is not an extraction ceiling for systematic study.
+See the [whole-material methodology protocol](references/whole-material-methodology.md), the [original three-page teaching PDF](examples/method-lab-synthetic.pdf), and the [systematic-study example](examples/overview-systematic-demo.json). The example includes coverage, action-rule, content-review and original-heading records. Its short length is for demonstration and regression testing, not an extraction ceiling for real materials.
 
 ### An Accumulating Method Library
 
@@ -39,19 +39,38 @@ See the [method library protocol and commands](references/method-library.md), th
 ### Language and In-Page Interaction
 
 - **Follows your language**: an explicit instruction comes first, then the current request and the conversation; Chinese and English are supported for body text, the interface, Markdown and copyable prompts. Original quotations and source names are preserved. Language is never guessed from nationality or browser locale, and existing HTML is never auto-translated.
-- **Logical relationship maps**: the core framework switches between cards and a framework relationship map; the action rules present the whole-material methodology. You can inspect why each dependency, application or feedback link exists and where it comes from, with inference set apart by color; all nodes live on one canvas.
-- **Apply This Methodology**: enter your question, goal and constraints, pick a specific method or let it match automatically, and get a prompt you can copy into a conversation about the material. It judges applicability first and only then gives sourced analysis and suggested actions; the page never calls an AI directly.
+- **Logical relationship maps**: core framework cards remain available and switch to a collapsible framework mind map with search, zoom and fullscreen. Hover or focus a node or link for its explanation and source; independent branches and cross-links retain the original relationships. Action rules still show the whole-material methodology graph.
+- **Reader themes and motion**: new pages use Sea Salt, Ink Wash or Bamboo Moon with a compact horizontal layout, larger diagrams, readable floating explanations and an optional motion switch. Both diagrams retain their links when motion is off.
+- **Apply This Methodology**: enter your question, goal and constraints, choose the whole structure, a specific method or automatic selection, and copy the resulting prompt into your material conversation. The prompt asks your agent to assess applicability before giving sourced analysis and suggested actions. The page does not run an AI itself.
 
 - Supports PDF, EPUB, MOBI/AZW/AZW3, DOCX, PPTX/PPTM, HTML, Markdown, TXT, RTF, and multi-material collections
 - Two learning depths: "Quick Overview" and "Systematic Study"
-- Generates a traceable `.learnkb/` knowledge base, a self-contained interactive HTML page, and synced Markdown
+- Systematic study reads to the end and audits every method candidate's disposition; card counts do not establish completeness across books, papers, industry reports, slides and other materials
+- Generates a traceable `.learnkb/` knowledge base, a self-contained interactive HTML page, and Markdown derived from the same content data
 - Fine-grained source mapping for PDF pages, PPT slides, and EPUB chapters
 - Produces core-framework, guided-content, glossary, action-rules, dynamic self-check, and local-notes pages
-- Runs coverage audits, summary bidirectional mapping, reverse coverage spot checks, source hashing, and incremental-update validation
+- Systematic study runs full coverage, summary mapping and reverse checks; quick overviews scan the complete structure and audit displayed citations. Both check source hashes
 - Distinguishes material-backed facts, areas not covered by the material, model-added content, and externally verified items
 - Offline by default with no automatic dependency installation; page notes, learner profiles, and wrong-answer records stay in the local browser only
 
+### Framework Maps with Many Unlinked Cards
+
+Connected frameworks appear in compact groups. Frameworks with no recorded links stay visible in a responsive grid below, retaining their card numbers and source order. “No links recorded yet” describes this graph, not conceptual independence in the original material. No card limit, artificial root or decorative relationship is added. Search lists every match; selection traces direct links or exact edge endpoints. Long English/Chinese labels are measured, wrapped and given real wire gaps, with conflicting routes moved into clear corridors. The same renderer keeps cycles, cross-links and all nodes when expanded.
+
+### Learning Depths
+
+| Item | Quick overview | Systematic study |
+| --- | --- | --- |
+| Content | Core arguments across the main sections, essential terms, conditions and limits | Read each source block and retain independent knowledge, arguments, evidence and methods as fully as possible |
+| Source checks | Complete structure scan and displayed-citation review in `quick-audit.json` | Full coverage, summary ledger, rule/relationship ledger and independent content review |
+| Method files | Defensible core methods and an integrated structure | Methods and an integrated structure reviewed against the full material |
+| Question bank | No exhaustive bank is prebuilt; inspect original questions in the selected scope when a quiz starts | Index questions through the systematic workflow |
+
+Both depths share the six modules, Chinese/English support, three themes, contained hovercard scrolling, relationship maps and `finalize.py` delivery. `methods.json` is the method-card source of truth; `methodology.json` is the explicitly labeled integrated structure. Use the corresponding no-method/not-applicable status when the source does not support one. A quick overview does not establish exhaustive coverage. Upgrading preserves `pageId` and reusable content/method IDs, then completes the systematic records after review.
+
 ## Showcase
+
+These 16 user-captured screenshots show the updated liquid-glass interface in paired English and Chinese views. This README uses the eight English images; [README_CN.md](README_CN.md) uses their Chinese counterparts. The [showcase image index](assets/showcase/README.md) maps both sets to the same eight views. Some maps are partial screenshots. These captures illustrate the design, not a browser acceptance report for this release; use the bundled HTML examples to try the current interactions.
 
 The following examples show learning pages generated from three types of material, in order: a biography, a financial market outlook report, and a research paper. Each set of screenshots highlights selected sections of the same six-module learning-page format; it does not show every section of each page.
 
@@ -73,7 +92,7 @@ The first-run guide introduces the modules and optional local learner profile. T
 
 **Framework relationship map — partial view**
 
-![Elon Musk biography framework relationship map showing numbered nodes and links](assets/showcase/04-musk-framework-relationships.png)
+![Compact framework mind map showing connected groups, stable numbered nodes and inline relationship labels; partial view](assets/showcase/04-musk-framework-relationships.png)
 
 ### 2. Financial market outlook report — J.P. Morgan 2026 Mid-Year Outlook
 
@@ -99,13 +118,15 @@ The paper example shows a research argument recast as a learning page and an exp
 
 ![Attention Is All You Need methodology map with numbered Transformer reasoning steps](assets/showcase/08-attention-paper-methodology-map.png)
 
-These screenshots demonstrate interface organization, not an independent verification of each claim, citation or generated conclusion. Source texts and screenshots remain subject to their respective rights holders; this repository does not include the original materials or the full generated results. Only process and display materials you have the rights to use. For a synthetic, source-free walkthrough, open the [whole-methodology demo](examples/whole-methodology-demo.html) or the [English feature demo](examples/features-en.html).
+These screenshots demonstrate interface organization, not an independent verification of each claim, citation or generated conclusion. Source texts and screenshots remain subject to their respective rights holders; this repository does not include those original materials or their full generated results. Bundled Method Lab sources and knowledge bases are self-authored synthetic examples under MIT. For interaction examples, open the [synthetic systematic-study demo](examples/systematic-demo.html) or the [English feature demo](examples/features-en.html).
 
 ## Getting Started
 
 ### 1. Installation
 
-Repository URL: `https://github.com/dmoshehun-prog/learn-from-materials`.
+**Install this 1.0 release package:** extract `learn-from-materials-1.0-release.zip` and place the complete enclosed `learn-from-materials/` folder in your client's skill search directory. `SKILL.md`, `scripts/`, `references/` and `templates/` should sit directly inside that folder; avoid an extra nesting level. Back up an existing skill of the same name before updating. Reload or restart the client if it does not discover the new version.
+
+Repository URL: `https://github.com/dmoshehun-prog/learn-from-materials`. The git examples below install the repository's default branch, which may differ from this ZIP; use the ZIP to install this release.
 
 | Agent | User-level install directory | Example |
 |---|---|---|
@@ -114,6 +135,8 @@ Repository URL: `https://github.com/dmoshehun-prog/learn-from-materials`.
 | Claude Code | `~/.claude/skills/` | `git clone https://github.com/dmoshehun-prog/learn-from-materials.git ~/.claude/skills/learn-from-materials` |
 | GitHub Copilot CLI | `~/.copilot/skills/` or `~/.agents/skills/` | `git clone https://github.com/dmoshehun-prog/learn-from-materials.git ~/.copilot/skills/learn-from-materials` |
 | Other agents | See your client's documentation | Place the full directory in its Agent Skills search path |
+
+Codex user-level discovery uses `~/.agents/skills/`; see the [official skill locations](https://learn.chatgpt.com/docs/build-skills). Follow your installed client's documentation if its search paths differ.
 
 If the target directory already exists, back it up yourself first — do not overwrite it directly. Cloud or hosted agents may not read local user directories; install through that product's skill import, sync, or project-level directory mechanism instead.
 
@@ -127,14 +150,14 @@ Please use learn-from-materials to systematically study this PDF and generate a 
 Give me a quick overview of this PPT, keep per-slide sources, and generate an offline learning HTML.
 ```
 
-The skill first asks you to choose between "Quick Overview" and "Systematic Study", then follows the workflow defined in `SKILL.md`.
+An explicit request for a quick overview or systematic study selects that depth directly. If no depth is specified, the skill asks once, then follows `SKILL.md`. Output follows the current request language unless you explicitly choose English or Chinese.
 
 ## Requirements & Compatibility
 
 - Python 3.10 or later
 - An agent that can read materials and the skill directory and run local Python commands
 - Most formats can be handled with the Python standard library or system capabilities
-- Node.js, Playwright, and Chromium are used only for optional browser interaction verification
+- Node.js is used for optional JavaScript regression checks; Playwright and an existing browser are used for permitted browser verification
 - Scanned PDFs and image-heavy slides require OCR or vision capabilities; when unavailable, affected ranges are flagged as unverified
 - Long books, multi-material cross-analysis, specialized papers, and complex open-ended questions work best with long-context, high-reasoning models
 
@@ -154,7 +177,7 @@ This project never installs these dependencies automatically. If you truly need 
 
 ## Command-Line Tools
 
-Run the following commands from the repository root.
+Run these commands from the skill root and replace angle-bracket placeholders with actual paths. On Windows, use an installed `python` or `py -3` in place of `python3`; commands are single-line for PowerShell compatibility. Scripts extract, bind, validate and deliver data; the agent still reads and authors the learning content.
 
 ### Check parsing capabilities
 
@@ -165,27 +188,42 @@ python3 scripts/extract.py --check
 ### Extract materials
 
 ```bash
-python3 scripts/extract.py <material-path> \
-  --mode text \
-  --ocr auto \
-  --output-dir ./learning_work
+python3 scripts/extract.py <material-path> --mode text --ocr auto --output-dir <topic>.learnkb
 ```
 
-### Validate and deliver a learning page
+### Prepare Content and Canonical Method Data
+
+After extraction, the agent reads the source and authors `page.json`, `<topic>.learnkb/methods.json` and `methodology.json`. Scripts do not automatically author them from the source text. Both depths use these canonical files and retain original quotations and exact locators.
+
+Both depths bind the method files before completing their review records. Quick overviews then finish `quick-audit.json` against the final displayed content. See the [quick workflow](references/quick-workflow.md):
 
 ```bash
-python3 scripts/verify_coverage.py page.json --knowledge-base <topic>.learnkb
-python3 scripts/render_page.py page.json --output learning.html --check-only
-python3 scripts/finalize.py page.json --knowledge-base <topic>.learnkb --output-dir ./delivery --name learning
+python3 scripts/methods.py bind --library <topic>.learnkb/methods.json --page page.json --knowledge-base <topic>.learnkb --output page-with-methods.json
+python3 scripts/methodology.py bind --model <topic>.learnkb/methodology.json --page page-with-methods.json --knowledge-base <topic>.learnkb --output page-ready.json
 ```
 
-For a new systematic overview, first complete the per-unit [`action-rule-ledger.json`](references/action-rule-ledger.md). The finalizer validates and packages the HTML, Markdown and knowledge base, and exports `methodology.md` from the canonical `methodology.json`. Standalone rendering remains available for explicit re-rendering or diagnosis, but is not the complete delivery workflow. Older overviews that need repackaging have a documented legacy ledger option; do not use it for new material.
-
-If Playwright and Chromium are installed locally, you can additionally run:
+For a quick overview, review all displayed citations in `page-ready.json` and save the audit before running:
 
 ```bash
-node scripts/verify-page.js learning.html
+python3 scripts/prepare_quick.py page-ready.json --knowledge-base <topic>.learnkb
+python3 scripts/finalize.py page-ready.json --knowledge-base <topic>.learnkb --output-dir ./delivery --name learning-quick
 ```
+
+A new systematic overview uses the same binding commands above and also needs the complete knowledge base, [`summary-ledger.json`](references/summary-coverage-schema.md), [`action-rule-ledger.json`](references/action-rule-ledger.md) and [`content-review.json`](references/content-review-schema.md). PDFs additionally need a [reviewed source-heading index](references/source-heading-index.md). Review records must match the final bound `page-ready.json`. Then run:
+
+```bash
+python3 scripts/finalize.py page-ready.json --knowledge-base <topic>.learnkb --output-dir ./delivery --name learning-systematic
+```
+
+### Delivery and Verification Boundaries
+
+`finalize.py` binds canonical methods, validates the selected depth's source/coverage requirements, derives readable method files and packages the result. Outputs include `learning-quick.html` or `learning-systematic.html`, matching `.md`, bound `.page.json`, `.learnkb/`, `.delivery.json` and ZIP. `patterns.md` and `methodology.md` live inside the knowledge base. Choose an output directory outside the source knowledge base; existing deliveries are preserved, so use a new name when regenerating.
+
+Bundles retain the original extraction text, source maps and safety/performance reports. Rebuildable extraction caches remain in the source working directory. On Windows, choose short working and output paths when a path-length error occurs.
+
+`render_page.py --check-only` preflights already-bound data; the renderer also supports topic/unit pages. Standalone rendering is not a complete overview delivery. `--legacy` and `--legacy-rule-ledger` apply only to explicitly requested old-page regeneration/re-delivery, not to new material.
+
+Initial manifests are `static-only` with `visualReview: not-run`. Use an existing browser for further checks only when the environment and tools permit it. Static and in-memory DOM checks do not establish visual acceptance. Report unavailable browser capabilities or protocols; do not install dependencies or change security settings automatically.
 
 ## Repository Layout
 
@@ -198,7 +236,7 @@ learn-from-materials/
 ├── LICENSE.md               # MIT license
 ├── NOTICE.md                # Upstream sources & derivative-work notes
 ├── SECURITY.md              # Security boundaries & vulnerability reporting
-├── assets/                  # Icons & project screenshots
+├── assets/                  # Icons, theme textures & showcase screenshots
 ├── examples/                # Page JSON, demo page & synthetic knowledge base
 ├── references/              # Content contracts, audit rules & learning protocol
 ├── scripts/                 # Extraction, rendering, validation & test scripts
@@ -206,6 +244,9 @@ learn-from-materials/
 ```
 
 ## Tests
+
+`node --test scripts/tests/test-framework-layout.cjs scripts/tests/test-graph-labels.cjs scripts/tests/test-methodology-language.cjs` exercises the actual framework renderer (including sparse/all-unlinked layouts and all-match search), inline label geometry, selection/fullscreen state and Chinese/English details with an in-memory DOM. It does not establish browser visual acceptance. The English `features-en.html` example includes a source-checked synthetic methodology graph. Quick workflow tests additionally cover Chinese/English extraction, canonical binding, index preparation and delivery, including stopping on missing method files, stale source text and missing citations.
+
 
 ```bash
 python3 -m unittest discover -s scripts/tests -p 'test_*.py'
@@ -215,9 +256,9 @@ python3 scripts/verify_static.py examples/features-en.html
 python3 scripts/verify_static.py examples/features-zh.html
 ```
 
-`examples/示例方法材料.learnkb/` is a synthetic fixture for contract and regression tests; it does not represent audit conclusions for any real book or PDF, and its source paths are portable example paths.
+`scripts/tests/fixtures/legacy.learnkb/` is a synthetic fixture for contract and regression tests; it does not represent audit conclusions for any real book or PDF, and its source paths are portable example paths.
 
-Current version: `v0.2.0` (pre-stable). New systematic overviews require a v2 per-unit action-rule and relationship-review ledger; systematic PDFs also require a reviewed original-heading index. Structural, citation, coverage and relationship checks do not prove that the first reading found every important idea or that a source-backed interpretation is semantically correct. Results can vary with agent permissions, context, vision capabilities and dependencies.
+Current package version: `1.0 release`, revision `release`. New systematic overviews require a v2 per-unit action-rule/relationship ledger, a source-first `content-review.json` second pass, and (for PDFs) a reviewed original-heading index. The content checker binds evidence to the exact input version and detects missing mappings, stale records and shortened enumerated lists; it does not prove semantic truth or zero omissions. Initial deliveries are `static-only` with `visualReview: not-run`; use `verify-layout.cjs` only when browser access is permitted, then record a separate layout-reviewed delivery. Results can vary with agent permissions, context, vision capabilities and dependencies.
 
 ## Security & Privacy
 
@@ -241,3 +282,12 @@ This project is a derivative work built on the following MIT-licensed open-sourc
 See [NOTICE.md](NOTICE.md) for detailed sources, inheritance relationships, and additions. When copying, modifying, or distributing this project, please retain [LICENSE.md](LICENSE.md) and [NOTICE.md](NOTICE.md).
 
 New and modified content in this repository is likewise released under the MIT License. The upstream authors and maintainers do not endorse this project's subsequent extensions.
+
+1.0 release includes the current adjustable liquid-glass preset, distinct blue/yellow, paper/ink and green/gold themes, contained hovercard scrolling, viewport-filling methodology fullscreen, centered labels on straight/orthogonal wires, concise node cards, and single-prefix action conditions. Existing-page styling changes preserve page and method IDs, evidence and saved reader-state associations. See `SKILL.md`, `references/visual-system.md` and `templates/themes/README.md`.
+
+## Citation language, layout and scanned PDFs
+
+- English pages display translated citation labels while keeping original citations, quotes and page/source identities for verification. `sourceLabels` is presentation data, not evidence replacement. Translated chapter names are not asserted to be official edition titles.
+- Long English navigation and card text wrap or receive enough space; prefixes are supplied once. Check actual browser layout at normal and 200% text/zoom.
+- Scanned PDFs need text-recognition capability, not a mandatory OCR installation. Existing OCR or model vision can be used when the actual page images are available. Preserve page-level transcripts and uncertainty. No dependencies are installed automatically.
+- `scripts/tests/fixtures/` contains compatibility and synthetic validation inputs. They are not production templates or proof that a real material was fully studied.
