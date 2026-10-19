@@ -8,25 +8,14 @@
 
 - 来源优先的逐单元记录与确定性组装，同源生成学习页面、章节说明和出处／覆盖映射。
 - 框架和关系候选账本，保存保留、合并和排除去向；逐单元原文回读及全局正确性、遗漏／应用检查绑定实际输入。
-- 检查点、按依赖恢复、验收输入冻结及阶段耗时记录，保留失败、重试和未知间隔。
 - 框架主分支与交叉边优先曲线，未连线框架保留在卡片、搜索和图外折叠清单；改进两图方向提示、出处浮片、窄屏与全屏操作。
 - 交付目录及 ZIP 顶层提供独立方法论 Markdown，内容与知识库导出一致；交付元数据读取实际 skill 版本。
 - 统一为当前执行者的顺序流程，同步中英文文档、直接提取命令、示例和发行元数据。
 - 固定提取基准子进程日志的 UTF-8 编码，避免 Windows 控制台编码与父进程不同时出现诊断流解码异常。
 
-### 本地 1.06 用户迁移
-
-- 移除多智能体调度、运行容量探测、执行方式选择、额度提醒和 execution-choice 文件要求。直接运行 extract.py 即可提取；旧 --execution-choice 参数会提示移除。
-- 保留逐单元回读与分开的正确性／遗漏检查，同一执行者如实记录身份，不再声称独立智能体审核。
-- 历史并行复核记录按其原契约兼容验证，不启动调度、不改写历史身份；新记录组装使用 sequential。
-- 新计时报告使用 pipeline-report-v1，新阶段记录使用 pipeline-stage-v3；旧记录仍可读取，报告不再输出多智能体数量或峰值并发。
-- 旧 HTML 可继续阅读；知识库重新交付遵守相应来源、复核与明确兼容契约。
-
 ### English
 
 Compared with public 1.0, this release adds source-first unit records and deterministic assembly, framework/relationship inventories, scoped source rereads, correctness and omission/application passes, resumable checkpoints, acceptance snapshots and phase timing. It improves curve-first framework routing, unlinked-framework lists, direction cues, source tooltips and responsive/fullscreen reading, and delivers standalone methodology Markdown at the ZIP root.
-
-For users of local 1.06, multi-agent scheduling, capacity probing, execution-mode selection, usage warnings and the execution-choice file requirement are removed. The current executor performs separate recorded review phases. Historical parallel reviews remain validation-only compatibility data; new assembly uses sequential execution. Timing reports use pipeline-report-v1 and new stage records use pipeline-stage-v3; old records remain readable without publishing agent-count/concurrency metrics. Documentation and release metadata are aligned at 1.1.0.
 
 ---
 
