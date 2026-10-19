@@ -5,7 +5,7 @@
 
 > Turn books, PDFs, slides, Word documents, web pages, and multi-file material sets into traceable knowledge bases, interactive learning pages, and Markdown derived from the same content data.
 
-![Status](https://img.shields.io/badge/version-1.0%20release-blue)
+![Status](https://img.shields.io/badge/version-1.1.0-blue)
 ![Agent Skills](https://img.shields.io/badge/standard-Agent%20Skills-5b6ee1)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -15,6 +15,12 @@
 It works in agent environments that can read files, run local commands, and recognize `SKILL.md` — such as WorkBuddy, Codex, Claude Code, and GitHub Copilot CLI. Pure chat environments without file-system access or Python execution can only use parts of the prompting workflow; they cannot perform material extraction, coverage validation, or HTML rendering.
 
 <img width="2400" height="1600" alt="overview-en" src="https://github.com/user-attachments/assets/87ea840f-a4d2-43fb-a054-bf618e2269e0" />
+
+## 1.1.0
+
+A single sequential workflow extracts materials directly, without an execution-mode choice or choice file. Source-first unit records derive the page and readable units from the same data. Unit rereads and final correctness and omission/application passes retain actual evidence and dependency fingerprints.
+
+This release adds relationship inventories, resumable checkpoints, acceptance snapshots and phase timing; improves framework curves, outside lists for unlinked cards, direction cues and source tooltips; and exports a standalone methodology Markdown at the delivery root. See [CHANGELOG.md](CHANGELOG.md) for cumulative changes and migration from the local 1.06 package.
 
 ## Key Features
 
@@ -26,7 +32,7 @@ The whole structure is also saved separately as `methodology.json` / `methodolog
 
 Guided content shows source hints for core ideas, key points and conclusions on mouse hover and on keyboard focus, plus an expandable "Source" panel for touch screens. These stay available after switching units. When a verified fine-grained location exists, the matching page number is displayed; otherwise the unit-level or conclusion-level range is reported as-is.
 
-See the [whole-material methodology protocol](references/whole-material-methodology.md), the [original three-page teaching PDF](examples/method-lab-synthetic.pdf), and the [systematic-study example](examples/overview-systematic-demo.json). The example includes coverage, action-rule, content-review and original-heading records. Its short length is for demonstration and regression testing, not an extraction ceiling for real materials.
+See the [whole-material methodology protocol](references/whole-material-methodology.md), the [original three-page teaching PDF](examples/method-lab-synthetic.pdf), and the [systematic-study example](examples/overview-sequential-systematic.json). The example includes coverage, action-rule, content-review and original-heading records. Its short length is for demonstration and regression testing, not an extraction ceiling for real materials.
 
 ### An Accumulating Method Library
 
@@ -55,14 +61,14 @@ See the [method library protocol and commands](references/method-library.md), th
 
 ### Framework Maps with Many Unlinked Cards
 
-Connected frameworks appear in compact groups. Frameworks with no recorded links stay visible in a responsive grid below, retaining their card numbers and source order. “No links recorded yet” describes this graph, not conceptual independence in the original material. No card limit, artificial root or decorative relationship is added. Search lists every match; selection traces direct links or exact edge endpoints. Long English/Chinese labels are measured, wrapped and given real wire gaps, with conflicting routes moved into clear corridors. The same renderer keeps cycles, cross-links and all nodes when expanded.
+Connected frameworks appear in compact groups. Unlinked frameworks remain in source order in an initially collapsed list outside the canvas, with complete search and source-grounded details. An all-unlinked view has no large canvas; Expand all expands connected nodes and every original edge. All canonical frameworks remain available. Missing-relationship review still applies; an unlinked graph record does not prove independence in the source. No synthetic root or decorative edge is added.
 
 ### Learning Depths
 
 | Item | Quick overview | Systematic study |
 | --- | --- | --- |
 | Content | Core arguments across the main sections, essential terms, conditions and limits | Read each source block and retain independent knowledge, arguments, evidence and methods as fully as possible |
-| Source checks | Complete structure scan and displayed-citation review in `quick-audit.json` | Full coverage, summary ledger, rule/relationship ledger and independent content review |
+| Source checks | Complete structure scan and displayed-citation review in `quick-audit.json` | Full coverage, summary ledger, rule/relationship ledger and phased source-first content review |
 | Method files | Defensible core methods and an integrated structure | Methods and an integrated structure reviewed against the full material |
 | Question bank | No exhaustive bank is prebuilt; inspect original questions in the selected scope when a quiz starts | Index questions through the systematic workflow |
 
@@ -118,13 +124,13 @@ The paper example shows a research argument recast as a learning page and an exp
 
 ![Attention Is All You Need methodology map with numbered Transformer reasoning steps](assets/showcase/08-attention-paper-methodology-map.png)
 
-These screenshots demonstrate interface organization, not an independent verification of each claim, citation or generated conclusion. Source texts and screenshots remain subject to their respective rights holders; this repository does not include those original materials or their full generated results. Bundled Method Lab sources and knowledge bases are self-authored synthetic examples under MIT. For interaction examples, open the [synthetic systematic-study demo](examples/systematic-demo.html) or the [English feature demo](examples/features-en.html).
+These screenshots demonstrate interface organization, not an independent verification of each claim, citation or generated conclusion. Source texts and screenshots remain subject to their respective rights holders; this repository does not include those original materials or their full generated results. Bundled Method Lab sources and knowledge bases are self-authored synthetic examples under MIT. For interaction examples, open the [synthetic systematic-study demo](examples/sequential-systematic-demo.html) or the [English feature demo](examples/features-en.html).
 
 ## Getting Started
 
 ### 1. Installation
 
-**Install this 1.0 release package:** extract `learn-from-materials-1.0-release.zip` and place the complete enclosed `learn-from-materials/` folder in your client's skill search directory. `SKILL.md`, `scripts/`, `references/` and `templates/` should sit directly inside that folder; avoid an extra nesting level. Back up an existing skill of the same name before updating. Reload or restart the client if it does not discover the new version.
+**Install this 1.1.0 package:** extract `learn-from-materials-1.1.0.zip` and place the complete enclosed `learn-from-materials/` folder in your client's skill search directory. `SKILL.md`, `scripts/`, `references/` and `templates/` should sit directly inside that folder; avoid an extra nesting level. Back up an existing skill of the same name before updating. Reload or restart the client if it does not discover the new version.
 
 Repository URL: `https://github.com/dmoshehun-prog/learn-from-materials`. The git examples below install the repository's default branch, which may differ from this ZIP; use the ZIP to install this release.
 
@@ -209,7 +215,7 @@ python3 scripts/prepare_quick.py page-ready.json --knowledge-base <topic>.learnk
 python3 scripts/finalize.py page-ready.json --knowledge-base <topic>.learnkb --output-dir ./delivery --name learning-quick
 ```
 
-A new systematic overview uses the same binding commands above and also needs the complete knowledge base, [`summary-ledger.json`](references/summary-coverage-schema.md), [`action-rule-ledger.json`](references/action-rule-ledger.md) and [`content-review.json`](references/content-review-schema.md). PDFs additionally need a [reviewed source-heading index](references/source-heading-index.md). Review records must match the final bound `page-ready.json`. Then run:
+A new systematic overview first authors unit-record-v2 with the [unit assembly workflow](references/systematic-workflow.md), derives the page with pipeline.py assemble, and records relation-ledger-v1 and the phased content review. After canonical binding it also needs the complete knowledge base, [`summary-ledger.json`](references/summary-coverage-schema.md), [`action-rule-ledger.json`](references/action-rule-ledger.md) and [`content-review.json`](references/content-review-schema.md). PDFs additionally need a [reviewed source-heading index](references/source-heading-index.md). Review records must match the final bound `page-ready.json`. Then run:
 
 ```bash
 python3 scripts/finalize.py page-ready.json --knowledge-base <topic>.learnkb --output-dir ./delivery --name learning-systematic
@@ -217,7 +223,7 @@ python3 scripts/finalize.py page-ready.json --knowledge-base <topic>.learnkb --o
 
 ### Delivery and Verification Boundaries
 
-`finalize.py` binds canonical methods, validates the selected depth's source/coverage requirements, derives readable method files and packages the result. Outputs include `learning-quick.html` or `learning-systematic.html`, matching `.md`, bound `.page.json`, `.learnkb/`, `.delivery.json` and ZIP. `patterns.md` and `methodology.md` live inside the knowledge base. Choose an output directory outside the source knowledge base; existing deliveries are preserved, so use a new name when regenerating.
+`finalize.py` binds canonical methods, validates the selected depth's source/coverage requirements, derives readable method files and packages the result. Outputs include `learning-quick.html` or `learning-systematic.html`, matching `.md`, bound `.page.json`, `.learnkb/`, `.delivery.json` and ZIP. `patterns.md` and `methodology.md` live inside the knowledge base; a standalone `<name>.methodology.md` is also delivered and placed at the ZIP root. Choose an output directory outside the source knowledge base; existing deliveries are preserved, so use a new name when regenerating.
 
 Bundles retain the original extraction text, source maps and safety/performance reports. Rebuildable extraction caches remain in the source working directory. On Windows, choose short working and output paths when a path-length error occurs.
 
@@ -258,7 +264,7 @@ python3 scripts/verify_static.py examples/features-zh.html
 
 `scripts/tests/fixtures/legacy.learnkb/` is a synthetic fixture for contract and regression tests; it does not represent audit conclusions for any real book or PDF, and its source paths are portable example paths.
 
-Current package version: `1.0 release`, revision `release`. New systematic overviews require a v2 per-unit action-rule/relationship ledger, a source-first `content-review.json` second pass, and (for PDFs) a reviewed original-heading index. The content checker binds evidence to the exact input version and detects missing mappings, stale records and shortened enumerated lists; it does not prove semantic truth or zero omissions. Initial deliveries are `static-only` with `visualReview: not-run`; use `verify-layout.cjs` only when browser access is permitted, then record a separate layout-reviewed delivery. Results can vary with agent permissions, context, vision capabilities and dependencies.
+Current package version: `1.1.0`, revision `release`. New systematic study uses unit-record-v2, unit-content-review-v2, content-review-v3 and relation-ledger-v1. The current executor performs source rereading and separate correctness and omission/application passes with honest identities. Mechanical validation checks structure, evidence and freshness, not semantic completeness. Initial delivery remains static-only; unperformed browser/manual visual checks remain not-run. Older data uses explicit compatibility contracts.
 
 ## Security & Privacy
 
@@ -283,7 +289,7 @@ See [NOTICE.md](NOTICE.md) for detailed sources, inheritance relationships, and 
 
 New and modified content in this repository is likewise released under the MIT License. The upstream authors and maintainers do not endorse this project's subsequent extensions.
 
-1.0 release includes the current adjustable liquid-glass preset, distinct blue/yellow, paper/ink and green/gold themes, contained hovercard scrolling, viewport-filling methodology fullscreen, centered labels on straight/orthogonal wires, concise node cards, and single-prefix action conditions. Existing-page styling changes preserve page and method IDs, evidence and saved reader-state associations. See `SKILL.md`, `references/visual-system.md` and `templates/themes/README.md`.
+1.1.0 retains the glass finish, three themes, local storage and stable page/method IDs. Framework maps use curve-first routes and outside lists for unlinked cards; methodology keeps straight/orthogonal routes. Sources, direction and evidence classes remain bound to canonical data.
 
 ## Citation language, layout and scanned PDFs
 
@@ -291,3 +297,5 @@ New and modified content in this repository is likewise released under the MIT L
 - Long English navigation and card text wrap or receive enough space; prefixes are supplied once. Check actual browser layout at normal and 200% text/zoom.
 - Scanned PDFs need text-recognition capability, not a mandatory OCR installation. Existing OCR or model vision can be used when the actual page images are available. Preserve page-level transcripts and uncertainty. No dependencies are installed automatically.
 - `scripts/tests/fixtures/` contains compatibility and synthetic validation inputs. They are not production templates or proof that a real material was fully studied.
+
+Check release structure and version consistency with `python3 scripts/verify_release.py`. See the [current sequential systematic example](examples/overview-sequential-systematic.json) and its [authoring project](examples/sequential-authoring/project.json).

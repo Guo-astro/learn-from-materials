@@ -2,6 +2,10 @@
 
 An action rule is a material-supported condition → action → reason relation. Capture prerequisites, exceptions and stop conditions separately when present. Do not turn the model's outside advice into a material fact. A material may have no action rules; record that finding instead of inventing cards.
 
+## Relationship responsibility in 1.04
+
+The action-rule schema stays v2. New systematic deliveries additionally use `relation-ledger.md` for source-first relationship candidates, search scopes, dispositions and separate structure review passes. `relationReview` below remains a per-type consistency summary, not a completeness claim. Populate absence reasons from actual source review; never infer them from an empty graph. `independentFrameworks` IDs must match the new inventory, whose evidence records support the unlinked findings. Do not create semantic review statuses in either compiler.
+
 ## Work in bounded units
 
 1. Read one complete content unit and the source blocks mapped to it in `coverage-audit.json.sourceBlocks`. Search is a supplement to sequential reading, not a substitute. Include tables, figures and OCR/visual limits in the unit note.

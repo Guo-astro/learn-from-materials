@@ -18,7 +18,10 @@ function checkLayout(s) {
 function checkFullscreen(s) {
   const r=s.rect;
   if(!r || ![r.x,r.y,r.width,r.height,s.viewportWidth,s.viewportHeight].every(Number.isFinite))return ['missing fullscreen measurements'];
-  return Math.abs(r.x)<=3 && Math.abs(r.y)<=3 && Math.abs(r.width-s.viewportWidth)<=3 &&
-         Math.abs(r.height-s.viewportHeight)<=3 ? [] : ['fullscreen does not fill viewport in both dimensions'];
+  const errors=[];
+  if(!(Math.abs(r.x)<=3 && Math.abs(r.y)<=3 && Math.abs(r.width-s.viewportWidth)<=3 && Math.abs(r.height-s.viewportHeight)<=3))errors.push('fullscreen does not fill viewport in both dimensions');
+  if(Array.isArray(s.toolbarButtons)&&s.toolbarButtons.some(b=>b.x < -2||b.y < -2||b.x+b.width>s.viewportWidth+2||b.y+b.height>s.viewportHeight+2))errors.push('fullscreen toolbar control is clipped');
+  if(s.graphKind==='methodology'&&s.viewportWidth<820&&(!Number.isFinite(s.renderedTitleSize)||s.renderedTitleSize<12))errors.push('narrow methodology default title is too small');
+  return errors;
 }
 module.exports={checkLayout,checkFullscreen};

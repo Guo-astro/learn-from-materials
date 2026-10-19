@@ -184,6 +184,7 @@ def main() -> int:
     p.add_argument('--strict-quick', action='store_true',
                    help='快速了解模式下也按 error 判定')
     p.add_argument('--legacy', action='store_true', help='仅检查旧页面，不要求新规则账本')
+    p.add_argument('--require-candidates', action='store_true', help='要求 1.04 关系候选账本并验证双向映射')
     p.add_argument('--json', action='store_true', help='输出机器可读结果')
     a = p.parse_args()
 
@@ -206,6 +207,21 @@ def main() -> int:
             print(f'规则账本校验失败：{exc}', file=sys.stderr)
             return 1
     rep = check_page(page, allow_empty=a.allow_empty, strict_quick=a.strict_quick, ledger=ledger)
+    if a.require_candidates or (a.knowledge_base and (a.knowledge_base / 'relation-ledger.json').is_file()):
+        try:
+            if a.legacy or not a.knowledge_base:
+                raise ValueError('Candidate validation requires a knowledge base and cannot use --legacy')
+            from relation_ledger import load_and_validate as check_inventory
+            inventory = check_inventory(page, a.knowledge_base)
+            expected = {x['frameworkId'] for x in inventory['isolatedFrameworks']}
+            if ledger is not None and expected != {x['frameworkId'] for x in ledger['independentFrameworks']}:
+                raise ValueError('Action-rule and relation ledgers disagree on isolated frameworks')
+            rep.note('关系候选、处置与实际边的双向映射通过；语义正确性仍须独立回读')
+            reasons = [x['reason'].strip() for x in inventory['isolatedFrameworks']]
+            if len(reasons) != len(set(reasons)):
+                rep.warn('未连线说明存在重复措辞；请检查实际范围、候选及证据，改写措辞本身不能证明审核充分')
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            rep.error('关系候选校验失败：' + str(exc))
     if a.knowledge_base:
         model_path = a.knowledge_base / 'methodology.json'
         if model_path.exists():

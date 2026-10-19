@@ -1,7 +1,8 @@
 (function () {
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
-  const WIDTH = 228, GAP = 20, MARGIN = 48;
+  const WIDTH = 228, MARGIN = 48;
+  let serial=0;
   const make = (tag, cls, value) => {
     const element = document.createElement(tag);
     if (cls) element.className = cls;
@@ -16,6 +17,7 @@
 
   function mount(host, options) {
     const en = options.language === 'en';
+    const uid='lfm-mm-'+(++serial);
     const say = (zh, english) => en ? english : zh;
     const sourceText = options.sourceText || (value => String(value || ''));
     const nodes = [...(options.nodes || [])].sort((a,b)=>(a.sourceOrder||0)-(b.sourceOrder||0)), edges = options.edges || [];
@@ -30,9 +32,12 @@
     const order = id => byId.get(id)?.sourceOrder || nodes.findIndex(node => node.id === id) + 1;
     for (const list of adjacency.values()) list.sort((a,b) => order(a.id)-order(b.id));
 
+    // Presentation never changes the canonical inventory. Only nodes participating
+    // in actual framework links enter the graph; the rest remain searchable below.
+    const graphNodes = nodes.filter(node => adjacency.get(node.id).length);
     // The forest is a layout aid; it does not change canonical edge meaning.
     const components = [], discovered = new Set();
-    for (const node of nodes) {
+    for (const node of graphNodes) {
       if (discovered.has(node.id)) continue;
       const component = [], pending = [node.id]; discovered.add(node.id);
       for (let i=0; i<pending.length; i++) {
@@ -58,10 +63,9 @@
     const roots = components.map(component => [...component].sort((a,b) =>
       totalDistance(a,component.length)-totalDistance(b,component.length)
       || adjacency.get(b).length-adjacency.get(a).length || order(a)-order(b))[0]);
-    if (!roots.length) return {refresh(){},hide(){}};
-    const linkedRoots = roots.filter(id => adjacency.get(id).length > 0);
+    const linkedRoots = roots;
     const unlinkedIds = nodes.filter(node => !adjacency.get(node.id).length).map(node => node.id);
-    const primaryRoot = linkedRoots[0] || roots[0];
+    const primaryRoot = linkedRoots[0] || null;
     const parent = new Map(), childEdge = new Map(), children = new Map(nodes.map(n=>[n.id,[]]));
     const side = new Map();
     for (const rootId of roots) {
@@ -82,6 +86,8 @@
     const expanded = new Set(roots), positions = new Map();
     let scale = 1, selected = null, selectedEdge = null;
     let span=350, branchGap=20, stageWidth=0, stageHeight=0;
+    let measuredSpan=350,measuredGap=20,measurementKey='',fontEpoch=0;
+    const curveSamples=new WeakMap();
     const measuredHeights=new Map(),labelSizes=new Map();
     const crossSlots=new Map(),wirePlans=new Map(),routedEdges=new Set();let routingBottom=0;
     let sectionPositions = [];
@@ -90,12 +96,12 @@
     const heading = make('div','lfm-mm-heading');
     heading.append(make('span','lfm-mm-eyebrow',say('FRAMEWORK RELATIONSHIPS / 思维导图','FRAMEWORK RELATIONSHIPS / MIND MAP')),
       make('h3','',options.title),
-      make('p','',say('有关联的框架集中展示，其余框架在下方排列。点击节点追踪直接关联，悬浮查看解释和出处。','Linked frameworks appear together; other frameworks are listed below. Select a node to highlight its direct links; hover for explanations and sources.')));
+      make('p','',say('图中展示有依据的框架关系。点击节点追踪直接关联；其余框架可通过下方折叠列表或搜索查看解释和出处。','The graph shows recorded framework relationships. Select a node to trace its direct links; use the collapsed list or search for other frameworks and their sources.')));
     header.append(heading);
     const tools = make('div','lfm-mm-tools');
     const search = make('input','lfm-mm-search'); search.type='search'; search.placeholder=say('搜索框架…','Search frameworks…');
     search.setAttribute('aria-label',say('搜索框架','Search frameworks'));
-    search.setAttribute('aria-controls','lfm-framework-search-results');
+    search.setAttribute('aria-controls',uid+'-search-results');
     tools.append(search);
     const button = (name, action, label) => {
       const item=make('button','',name); item.type='button';
@@ -103,16 +109,18 @@
       item.addEventListener('click',action); tools.append(item);
       return item;
     };
-    button(say('收起','Collapse'),()=>{expanded.clear();roots.forEach(id=>expanded.add(id));render(true);});
-    button(say('展开全部','Expand all'),()=>{nodes.forEach(n=>expanded.add(n.id));render(false,primaryRoot);});
-    button(say('适应宽度','Fit width'),()=>fit());
+    const collapseButton=button(say('收起','Collapse'),()=>{expanded.clear();roots.forEach(id=>expanded.add(id));render(true);});
+    const expandButton=button(say('展开全部','Expand all'),()=>{graphNodes.forEach(n=>expanded.add(n.id));render(false,primaryRoot);});
+    const fitButton=button(say('适应宽度','Fit width'),()=>fit());
     button(say('清除高亮','Clear selection'),()=>{selected=null;selectedEdge=null;updateSelection();hide();});
-    button('−',()=>setScale(scale-.12),say('缩小','Zoom out'));
-    button('＋',()=>setScale(scale+.12),say('放大','Zoom in'));
+    const zoomOutButton=button('−',()=>setScale(scale-.12),say('缩小','Zoom out'));
+    const zoomInButton=button('＋',()=>setScale(scale+.12),say('放大','Zoom in'));
+    const directionButton=button(say('方向演示','Show directions'),()=>{});
+    directionButton.setAttribute('aria-pressed','false');
     const fullscreenButton=button(say('全屏展开','Fullscreen'),()=>toggleFullscreen());
     fullscreenButton.setAttribute('aria-pressed','false');
     header.append(tools); shell.append(header);
-    const results=make('div','lfm-mm-results');results.id='lfm-framework-search-results';results.hidden=true;
+    const results=make('div','lfm-mm-results');results.id=uid+'-search-results';results.hidden=true;
     const searchStatus=make('p','lfm-mm-search-status');searchStatus.setAttribute('role','status');
     const resultList=make('div','lfm-mm-result-list');results.append(searchStatus,resultList);shell.append(results);
 
@@ -122,12 +130,35 @@
     const wires=svg('svg','lfm-mm-wires'), nodeLayer=make('div','lfm-mm-nodes');
     const sectionLayer=make('div','lfm-mm-sections');
     stage.append(wires,sectionLayer,nodeLayer); canvas.append(stage); viewport.append(canvas); shell.append(viewport);
+    viewport.hidden=!graphNodes.length;
+    shell.classList.toggle('is-empty',!graphNodes.length);
+    if(!graphNodes.length){
+      shell.append(make('p','lfm-mm-empty',say('本节暂无可展示的框架关系。框架内容与出处可通过下方列表或搜索查看。','No framework relationships are recorded for this section. Use the list or search to read the frameworks and their sources.')));
+      [collapseButton,expandButton,fitButton,zoomOutButton,zoomInButton,directionButton].forEach(item=>{item.disabled=true;item.hidden=true;});
+    }
     const footer=make('div','lfm-mm-foot');
     const materialCount=validEdges.filter(edge=>edge.evidence==='material').length;
-    footer.append(make('span','',say(`实线：材料依据 ${materialCount} 条 · 虚线：辅助推断 ${validEdges.length-materialCount} 条`,`Solid: ${materialCount} material links · Dashed: ${validEdges.length-materialCount} inferences`)));
+    if(validEdges.length)footer.append(make('span','',say(`实线：材料依据 ${materialCount} 条 · 虚线：辅助推断 ${validEdges.length-materialCount} 条`,`Solid: ${materialCount} material links · Dashed: ${validEdges.length-materialCount} inferences`)));
     const count=make('span',''); footer.append(count); shell.append(footer);
     if (extraEdges.length) shell.append(make('p','lfm-mm-extra',say(`含 ${extraEdges.length} 条交叉关系；展开相关节点后显示连线。`,`Includes ${extraEdges.length} cross-links; expand their nodes to show the wires.`)));
+    const unlinked=make('details','lfm-mm-unlinked'),unlinkedList=make('div','lfm-mm-unlinked-list');
+    const unlinkedDetail=make('div','lfm-mm-unlinked-detail'),unlinkedButtons=new Map();
+    unlinkedDetail.id=uid+'-unlinked-detail';unlinkedDetail.hidden=true;
+    unlinkedDetail.setAttribute('role','region');unlinkedDetail.tabIndex=-1;
+    if(unlinkedIds.length){
+      unlinked.append(make('summary','',say(`另有 ${unlinkedIds.length} 个框架未纳入关系图`,`Other frameworks outside the graph (${unlinkedIds.length})`)),
+        make('p','lfm-mm-unlinked-note',say('按原文顺序列出；选择框架查看解释、适用条件和出处。未纳入本图不代表它与其他内容没有关系。','Listed in source order. Select a framework for its explanation, applicability and sources. Its absence from this graph does not establish that no relationships exist.')),
+        unlinkedList,unlinkedDetail);
+      for(const id of unlinkedIds){
+        const node=byId.get(id),item=make('button','lfm-mm-unlinked-item',`${String(order(id)).padStart(2,'0')} · ${node.title}`);
+        item.type='button';item.id=uid+'-unlinked-'+unlinkedButtons.size;
+        item.setAttribute('data-framework-id',id);item.setAttribute('aria-controls',unlinkedDetail.id);item.setAttribute('aria-expanded','false');
+        item.addEventListener('click',()=>reveal(node,true));unlinkedButtons.set(id,item);unlinkedList.append(item);
+      }
+      shell.append(unlinked);
+    }
     host.replaceChildren(shell);
+    const motion=window.LFMGraphMotion?.mount({root:shell,viewport,button:directionButton,language:options.language});
     const measureLayer=make('div','lfm-mm-measure');measureLayer.setAttribute('aria-hidden','true');shell.append(measureLayer);
 
     // Reuse exactly the source-grounded hover content supplied to the old graph.
@@ -210,6 +241,7 @@
     document.addEventListener('keydown',event=>{
       if(event.key!=='Escape')return;
       if(fallbackFullscreen)exitFallback();
+      else if(document.fullscreenElement===shell){event.preventDefault();Promise.resolve(document.exitFullscreen()).catch(()=>{});}
       else hide();
     });
     function edgeDescription(edge) {
@@ -217,6 +249,7 @@
       content.append(make('h3','',byId.get(edge.from).title+' → '+byId.get(edge.to).title));
       content.append(make('p','lfm-mm-hover-type',`${edge.label} · ${edge.evidence==='material'?say('材料依据','Material evidence'):say('辅助理解的推断','Inference')}`));
       content.append(make('p','',edge.explanation));
+      if(routedEdges.has(edge))content.append(make('p','lfm-mm-hover-type',say('局部折线：曲线候选未通过避障检查，改用保留通道；关系含义与方向保持原样。','Local orthogonal fallback: cubic candidates failed clearance checks; a reserved corridor preserves the recorded relation and direction.')));
       content.append(make('p','hover-source',say('出处：','Source: ')+sourceText(edge.source)));
       options.sourceOriginal?.(content,edge.source);
       return content;
@@ -226,8 +259,13 @@
       return measuredHeights.get(id)||72;
     }
     function measure() {
+      const style=getComputedStyle(shell),rootStyle=getComputedStyle(document.documentElement);
+      const key=JSON.stringify([document.body.dataset.theme,viewport.clientWidth,style.fontFamily,style.fontSize,
+        style.getPropertyValue('--font-display'),rootStyle.fontSize,fontEpoch,
+        graphNodes.map(node=>[node.id,node.title]),validEdges.map(edge=>edge.label)]);
+      if(key===measurementKey)return;
       measureLayer.replaceChildren();measuredHeights.clear();labelSizes.clear();
-      for(const node of nodes){
+      for(const node of graphNodes){
         const box=make('div',`lfm-mm-node${linkedRoots.includes(node.id)?' is-root':''}`);
         box.style.position='relative';box.style.width=WIDTH+'px';box.style.minHeight='0';
         const body=make('button','lfm-mm-select');body.style.minHeight='72px';body.tabIndex=-1;
@@ -252,8 +290,9 @@
         if(line.trim())lines.push(line.trim());if(!lines.length)lines.push(text);
         labelSizes.set(edge,{lines,lineHeight,width:Math.max(48,...lines.map(line=>width(line)+22)),height:Math.max(24,lines.length*lineHeight+10)});
       }
-      span=Math.max(350,WIDTH+Math.max(0,...[...labelSizes.values()].map(item=>item.width))+64);
-      branchGap=Math.max(20,Math.max(0,...[...labelSizes.values()].map(item=>item.height))+16);
+      measuredSpan=Math.max(350,WIDTH+Math.max(0,...[...labelSizes.values()].map(item=>item.width))+64);
+      measuredGap=Math.max(20,Math.max(0,...[...labelSizes.values()].map(item=>item.height))+16);
+      measurementKey=key;
       measureLayer.replaceChildren();
     }
     function visibleChildren(id) {return expanded.has(id)?children.get(id):[];}
@@ -316,15 +355,16 @@
       for(let i=0;i<32;i++){const mid=(outside+within)/2;inside(mid)?within=mid:outside=mid;}
       return [start,splitCurve(points,outside)[1]];
     }
-    function wirePlan(edge) {
+    function wirePlan(edge,settings={}) {
       const from=positions.get(edge.from),to=positions.get(edge.to);
       const left=from.x+from.w/2<to.x+to.w/2;
-      const x1=left?rightPort(edge.from):from.x,x2=left?to.x:rightPort(edge.to);
+      const exit=settings.exit??(left?1:-1),entry=settings.entry??(left?-1:1);
+      const x1=exit===1?rightPort(edge.from):from.x,x2=(entry===1?rightPort(edge.to):to.x)+entry*8;
       const y1=from.y+from.h/2,y2=to.y+to.h/2;
-      const bend=Math.abs(x2-x1)<WIDTH/2?(left?120:-120):(x2-x1)*.52;
-      const points=[{x:x1,y:y1},{x:x1+bend,y:y1},{x:x2-bend,y:y2},{x:x2,y:y2}];
+      const bend=settings.reach??Math.max(64,Math.abs(x2-x1)*.52),lift=settings.lift||0;
+      const points=[{x:x1,y:y1},{x:x1+exit*bend,y:y1+lift},{x:x2+entry*bend,y:y2+lift},{x:x2,y:y2}];
       const size=labelSizes.get(edge);
-      return {...size,center:{x:(x1+x2)/2,y:(y1+y2)/2},pieces:wirePieces(points,size.width,size.height)};
+      return {...size,center:splitCurve(points,.5)[0][3],points,pieces:wirePieces(points,size.width,size.height)};
     }
     function labelRect(plan,pad=8) {
       return {left:plan.center.x-plan.width/2-pad,right:plan.center.x+plan.width/2+pad,
@@ -344,31 +384,57 @@
       return leave>0&&enter<1;
     }
     function curveHits(points,rect) {
-      // Check segments as well as samples, including thin labels between samples.
-      let previous=points[0];
-      for(let n=1;n<=192;n++){
-        const next=splitCurve(points,n/192)[0][3];
-        if(segmentHits(previous,next,rect))return true;
-        previous=next;
+      // Reject distant obstacles before sampling; share one sampled curve
+      // across its remaining obstacles instead of resampling for every card.
+      let sampled=curveSamples.get(points);
+      if(!sampled){
+        sampled={bounds:{left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),
+          top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))},polyline:null};
+        curveSamples.set(points,sampled);
       }
+      const b=sampled.bounds;
+      if(b.right<rect.left||b.left>rect.right||b.bottom<rect.top||b.top>rect.bottom)return false;
+      if(!sampled.polyline){
+        const [a,b,c,d]=points;sampled.polyline=[a];
+        for(let n=1;n<=192;n++){
+          const t=n/192,u=1-t;
+          sampled.polyline.push({x:u*u*u*a.x+3*u*u*t*b.x+3*u*t*t*c.x+t*t*t*d.x,
+            y:u*u*u*a.y+3*u*u*t*b.y+3*u*t*t*c.y+t*t*t*d.y});
+        }
+      }
+      for(let n=1;n<sampled.polyline.length;n++)if(segmentHits(sampled.polyline[n-1],sampled.polyline[n],rect))return true;
       return false;
     }
     function planRoutes() {
       wirePlans.clear();routedEdges.clear();
       const visible=validEdges.filter(edge=>positions.has(edge.from)&&positions.has(edge.to));
-      for(const edge of visible){
-        if(assignedEdges.has(edge))wirePlans.set(edge,wirePlan(edge));else routedEdges.add(edge);
-      }
-      const plans=[...wirePlans],rects=plans.map(([edge,plan])=>({edge,rect:labelRect(plan)}));
       const cards=[...positions].map(([id,p])=>({id,rect:cardRect(id,p)}));
-      for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++)if(intersects(rects[i].rect,rects[j].rect)){
-        routedEdges.add(rects[i].edge);routedEdges.add(rects[j].edge);
-      }
-      for(const [edge,plan] of plans){
-        if(cards.some(card=>intersects(labelRect(plan),card.rect)))routedEdges.add(edge);
-        const blockers=[...rects.filter(item=>item.edge!==edge).map(item=>item.rect),
-          ...cards.filter(card=>card.id!==edge.from&&card.id!==edge.to).map(item=>item.rect)];
-        if(blockers.some(rect=>plan.pieces.some(piece=>curveHits(piece,rect))))routedEdges.add(edge);
+      const bottom=Math.max(80,...cards.map(card=>card.rect.bottom))+24;
+      // A fixed candidate budget applies equally to tree branches and cross-links.
+      // These are genuine cubic arches, not rounded orthogonal paths.
+      for(const edge of [...visible.filter(edge=>assignedEdges.has(edge)),...visible.filter(edge=>!assignedEdges.has(edge))]){
+        const accepted=[...wirePlans.values()],labels=accepted.map(plan=>labelRect(plan));
+        const blockers=[...labels,...cards.filter(card=>card.id!==edge.from&&card.id!==edge.to).map(card=>card.rect)];
+        const from=positions.get(edge.from),to=positions.get(edge.to),forward=from.x<to.x;
+        const candidates=[wirePlan(edge)];
+        for(const [exit,entry] of [[forward?1:-1,forward?-1:1],[1,1],[-1,-1],[forward?-1:1,forward?1:-1]]){
+          for(const lift of [0,-64,64,-144,144,-280,280]){
+            candidates.push(wirePlan(edge,{exit,entry,lift,reach:Math.max(90,Math.min(260,Math.abs(from.x-to.x)*.52))}));
+          }
+        }
+        const safe=candidates.find(plan=>{
+          const rect=labelRect(plan);
+          if(rect.left<12||rect.right>stageWidth-12||rect.top<60||rect.bottom>bottom)return false;
+          if(plan.points.some(p=>p.x<12||p.x>stageWidth-12||p.y<60||p.y>bottom))return false;
+          if(plan.pieces.some(piece=>curveHits(piece,labelRect(plan,0))))return false;
+          const endpointCards=[from,to].map(p=>({left:p.x+.5,right:p.x+p.w-.5,top:p.y+.5,bottom:p.y+p.h-.5}));
+          if(endpointCards.some(box=>plan.pieces.some(piece=>curveHits(piece,box))))return false;
+          if([...cards.map(card=>card.rect),...labels].some(box=>intersects(rect,box)))return false;
+          if(blockers.some(box=>plan.pieces.some(piece=>curveHits(piece,box))))return false;
+          if(accepted.some(other=>other.pieces.some(piece=>curveHits(piece,rect))))return false;
+          return true;
+        });
+        if(safe)wirePlans.set(edge,safe);else routedEdges.add(edge);
       }
       return visible.filter(edge=>routedEdges.has(edge));
     }
@@ -382,23 +448,29 @@
         el.classList.toggle('is-muted',activeSelection&&!nearby.has(id));
         el.querySelector('.lfm-mm-select')?.setAttribute('aria-pressed',String(id===selected));
       });
+      unlinkedButtons.forEach((item,id)=>{
+        const active=id===selected;
+        item.classList.toggle('is-selected',active);item.setAttribute('aria-expanded',String(active));
+      });
+      unlinkedDetail.hidden=!unlinkedButtons.has(selected);
       wires.querySelectorAll('[data-edge-from]').forEach(el=>{
         const active=selectedEdge?el.getAttribute('data-edge-id')===selectedEdge.id:!!selected&&(el.getAttribute('data-edge-from')===selected||el.getAttribute('data-edge-to')===selected);
         el.classList.toggle('is-active',active);el.classList.toggle('is-muted',activeSelection&&!active);
         if(el.getAttribute('role')==='button')el.setAttribute('aria-pressed',String(active));
       });
+      motion?.select(selectedEdge?[selectedEdge.id]:selected?validEdges.filter(edge=>edge.from===selected||edge.to===selected).map(edge=>edge.id):[]);
     }
     function drawWires() {
       wires.replaceChildren();
       const defs=svg('defs');
-      [['material','lfm-mm-arrow'],['inference','lfm-mm-arrow-inference']].forEach(([kind,id])=>{
+      [['material',uid+'-arrow'],['inference',uid+'-arrow-inference']].forEach(([kind,id])=>{
         const marker=svg('marker'); marker.id=id;marker.setAttribute('viewBox','0 0 10 10');
-        marker.setAttribute('refX','9');marker.setAttribute('refY','5');marker.setAttribute('markerWidth','6');
-        marker.setAttribute('markerHeight','6');marker.setAttribute('orient','auto-start-reverse');
+        marker.setAttribute('refX','10');marker.setAttribute('refY','5');marker.setAttribute('markerWidth','15');
+        marker.setAttribute('markerHeight','15');marker.setAttribute('markerUnits','userSpaceOnUse');marker.setAttribute('orient','auto');
         const tip=svg('path');tip.setAttribute('d','M 0 0 L 10 5 L 0 10 z');tip.setAttribute('class',`lfm-mm-tip-${kind}`);
         marker.append(tip);defs.append(marker);
       }); wires.append(defs);
-      const labelLayer=svg('g','lfm-mm-label-layer');
+      const flowLayer=svg('g','lfm-mm-flow-layer'),labelLayer=svg('g','lfm-mm-label-layer'),motionEntries=[];
       const routing=window.LFMFrameworkRouting;
       const bounds={left:12,right:stageWidth-12,top:60,bottom:routingBottom};
       const obstacles=[...positions].filter(([id])=>adjacency.get(id).length).map(([id,p])=>cardRect(id,p));
@@ -414,20 +486,25 @@
         if(routedEdges.has(edge)){
           const slot=crossSlots.get(edge);center={x:slot.x,y:slot.y};
           const fromPort=rightPort(edge.from),toPort=rightPort(edge.to);
-          const start={x:fromPort+6,y:y1},end={x:toPort+6,y:y2};
+          const start={x:fromPort+6,y:y1},end={x:toPort+14,y:y2};
           const before={x:slot.x-width/2-16,y:slot.y},after={x:slot.x+width/2+16,y:slot.y};
           const prefix=routing.route(start,before,obstacles,bounds),suffix=routing.route(after,end,obstacles,bounds);
           paths=[routing.path(routing.simplify([{x:fromPort,y:y1},...prefix,{x:slot.x-width/2-7,y:slot.y}])),
-            routing.path(routing.simplify([{x:slot.x+width/2+7,y:slot.y},...suffix,{x:toPort,y:y2}]))];
+            routing.path(routing.simplify([{x:slot.x+width/2+7,y:slot.y},...suffix,{x:toPort+8,y:y2}]))];
         }else{const plan=wirePlans.get(edge);center=plan.center;paths=plan.pieces.map(curvePath);}
+        const entry={edge,paths:[],overlays:[]};
         paths.forEach((description,index)=>{
           const path=svg('path',`lfm-mm-wire${edge.evidence==='material'?'':' is-inference'}${cross?' is-cross':''}`);
           path.setAttribute('data-edge-id',edge.id);
           path.setAttribute('data-edge-from',edge.from);path.setAttribute('data-edge-to',edge.to);
+          path.setAttribute('data-route-kind',routedEdges.has(edge)?'orthogonal-fallback':cross?'cross-curve':'tree-curve');
+          if(routedEdges.has(edge))path.setAttribute('data-route-reason','No clear cubic candidate within 3 bounded layout passes (29 candidates per relation per pass); reserved obstacle-free corridor.');
           path.setAttribute('d',description);
-          if(index===1)path.setAttribute('marker-end',`url(#${edge.evidence==='material'?'lfm-mm-arrow':'lfm-mm-arrow-inference'})`);
+          if(index===1)path.setAttribute('marker-end',`url(#${uid+(edge.evidence==='material'?'-arrow':'-arrow-inference')})`);
           wires.append(path);
+          const flow=svg('path',`lfm-mm-flow${edge.evidence==='material'?'':' is-inference'}`);flow.setAttribute('d',description);flow.setAttribute('data-edge-id',edge.id);flow.setAttribute('aria-hidden','true');flowLayer.append(flow);entry.paths.push(path);entry.overlays.push(flow);
         });
+        motionEntries.push(entry);
         const group=svg('g','lfm-mm-edge-label');group.setAttribute('tabindex','0');
         group.setAttribute('role','button');
         group.setAttribute('aria-label',`${byId.get(edge.from).title} → ${byId.get(edge.to).title}：${edge.label}`);
@@ -435,21 +512,23 @@
         if(edge.evidence!=='material')group.classList.add('is-inference');
         group.setAttribute('data-edge-from',edge.from);group.setAttribute('data-edge-to',edge.to);
         group.setAttribute('data-edge-id',edge.id);
+        if(routedEdges.has(edge)){group.classList.add('is-route-fallback');const title=svg('title');title.textContent=say('局部折线：曲线候选未通过避障检查，使用保留通道。','Local orthogonal fallback: cubic candidates failed clearance checks; using a reserved corridor.');group.append(title);}
         const rect=svg('rect');
         rect.setAttribute('x',String(-width/2));rect.setAttribute('y',String(-height/2));
         rect.setAttribute('width',String(width));rect.setAttribute('height',String(height));rect.setAttribute('rx','10');
         const caption=svg('text');caption.setAttribute('text-anchor','middle');caption.setAttribute('dominant-baseline','central');
         lines.forEach((line,index)=>{const part=svg('tspan');part.setAttribute('x','0');part.setAttribute('y',String((index-(lines.length-1)/2)*lineHeight));part.textContent=line;caption.append(part);});
         group.append(rect,caption);
-        group.addEventListener('pointerenter',()=>show(edgeDescription(edge),group));
+        group.addEventListener('pointerenter',()=>{show(edgeDescription(edge),group);motion?.preview([edge.id]);});
         group.addEventListener('pointerleave',scheduleHide);
-        group.addEventListener('focus',()=>show(edgeDescription(edge),group));
+        group.addEventListener('focus',()=>{show(edgeDescription(edge),group);motion?.preview([edge.id]);});
         group.addEventListener('blur',scheduleHide);
         group.addEventListener('click',()=>{selected=null;selectedEdge=edge;updateSelection();show(edgeDescription(edge),group);});
         group.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selected=null;selectedEdge=edge;updateSelection();show(edgeDescription(edge),group);}});
         labelLayer.append(group);
       }
-      wires.append(labelLayer);
+      wires.append(flowLayer,labelLayer);motion?.replace(motionEntries);
+      shell.setAttribute('data-curved-relations',String(motionEntries.length-routedEdges.size));shell.setAttribute('data-orthogonal-fallbacks',String(routedEdges.size));shell.setAttribute('data-curve-candidates-per-pass','29');
     }
     function drawNodes() {
       nodeLayer.replaceChildren();
@@ -473,18 +552,32 @@
           toggle.addEventListener('click',()=>{open?expanded.delete(id):expanded.add(id);render(false,id);});
           box.append(toggle);
         }
-        box.addEventListener('pointerenter',()=>show(options.describe(id),box));
+        const preview=()=>motion?.preview(validEdges.filter(edge=>edge.from===id||edge.to===id).map(edge=>edge.id));
+        box.addEventListener('pointerenter',()=>{show(options.describe(id),box);preview();});
         box.addEventListener('pointerleave',scheduleHide);
-        box.addEventListener('focusin',()=>show(options.describe(id),box));
+        box.addEventListener('focusin',()=>{show(options.describe(id),box);preview();});
         box.addEventListener('focusout',scheduleHide);
         nodeLayer.append(box);
       }
     }
     function render(autoFit,focusId) {
+      if(!graphNodes.length){
+        positions.clear();nodeLayer.replaceChildren();wires.replaceChildren();sectionLayer.replaceChildren();
+        stageWidth=0;stageHeight=0;stage.style.width='0px';stage.style.height='0px';
+        canvas.style.width='0px';canvas.style.height='0px';
+        count.textContent=say(`关系图中 0 个框架 · ${nodes.length} 个框架可在列表中查看`,`0 frameworks in graph · ${nodes.length} frameworks available in the list`);
+        shell.setAttribute('data-curved-relations','0');shell.setAttribute('data-orthogonal-fallbacks','0');
+        motion?.replace([]);updateSelection();return;
+      }
       if(viewport.clientWidth<=0)return;
       measure();
-      positions.clear();hide();sectionPositions=[];crossSlots.clear();
-      const layouts=linkedRoots.map(rootId=>{
+      hide();crossSlots.clear();
+      let layouts,bandTop,routedVisible,best=null,passes=0;
+      // Try at most two reflows before routing unresolved tree or cross-link conflicts.
+      for(let attempt=0;attempt<3;attempt++){
+      span=Math.round(measuredSpan*(1+attempt*.28));branchGap=Math.round(measuredGap*(1+attempt*.6));
+      positions.clear();sectionPositions=[];
+      layouts=linkedRoots.map(rootId=>{
         const lists=['left','right'].map(branch=>children.get(rootId).filter(id=>side.get(id)===branch));
         const depths=lists.map(list=>Math.max(0,...list.map(maxDepth)));
         const totals=lists.map(list=>list.reduce((sum,id)=>sum+branchHeight(id),0)+branchGap*Math.max(0,list.length-1));
@@ -492,13 +585,13 @@
       });
       const leftDepth=Math.max(0,...layouts.map(item=>item.depths[0]));
       const rightDepth=Math.max(0,...layouts.map(item=>item.depths[1]));
-      const gridColumns=Math.max(1,Math.min(4,Math.floor((viewport.clientWidth-MARGIN*2+GAP)/(WIDTH+GAP))));
-      stageWidth=Math.max(MARGIN*2+WIDTH+(leftDepth+rightDepth)*span,unlinkedIds.length?MARGIN*2+WIDTH*gridColumns+GAP*(gridColumns-1):0);
+      stageWidth=MARGIN*2+WIDTH+(leftDepth+rightDepth)*span;
       const rootX=layouts.length?MARGIN+leftDepth*span+WIDTH/2:stageWidth/2;
-      let bandTop=24;
+      bandTop=24;
       if(layouts.length){
         sectionPositions.push({top:bandTop,text:say(`已标注关系 · ${layouts.length} 组 · ${validEdges.length} 条连线`,`Linked frameworks · ${layouts.length} groups · ${validEdges.length} links`)});
-        bandTop+=44;
+        // A bounded top arch corridor lets cross-links pass above same-row cards.
+        bandTop+=140;
       }
       layouts.forEach(({rootId,lists,totals,height})=>{
         const centerY=bandTop+height/2;
@@ -509,27 +602,24 @@
         });
         bandTop+=height+12;
       });
-      const routedVisible=planRoutes();
+      routedVisible=planRoutes();passes++;
+      const conflicts=routedVisible.length;
+      if(!best||conflicts<best.conflicts){
+        best={conflicts,positions:new Map(positions),sections:[...sectionPositions],width:stageWidth,top:bandTop,
+          plans:new Map(wirePlans),routed:new Set(routedEdges),visible:[...routedVisible]};
+      }
+      if(!conflicts)break;
+      }
+      positions.clear();best.positions.forEach((p,id)=>positions.set(id,p));sectionPositions=best.sections;
+      stageWidth=best.width;bandTop=best.top;routedVisible=best.visible;
+      wirePlans.clear();best.plans.forEach((p,edge)=>wirePlans.set(edge,p));routedEdges.clear();best.routed.forEach(edge=>routedEdges.add(edge));
+      shell.setAttribute('data-layout-passes',String(passes));
       if(routedVisible.length){
         stageWidth+=Math.max(...routedVisible.map(edge=>labelSizes.get(edge).width))+48;
         bandTop+=12;
         for(const edge of routedVisible){const size=labelSizes.get(edge);crossSlots.set(edge,{...size,x:stageWidth/2,y:bandTop+size.height/2});bandTop+=size.height+28;}
       }
       routingBottom=bandTop+12;
-      if(unlinkedIds.length){
-        bandTop+=layouts.length?24:0;
-        sectionPositions.push({top:bandTop,text:say(`暂未建立连线 · ${unlinkedIds.length} 个框架`,`No links recorded yet · ${unlinkedIds.length} frameworks`)});
-        bandTop+=48;
-        const columns=gridColumns;
-        const rowWidth=columns*WIDTH+(columns-1)*GAP;
-        const gridLeft=(stageWidth-rowWidth)/2;
-        for(let offset=0;offset<unlinkedIds.length;offset+=columns){
-          const row=unlinkedIds.slice(offset,offset+columns);
-          const height=Math.max(...row.map(nodeHeight));
-          row.forEach((id,index)=>positions.set(id,{x:gridLeft+index*(WIDTH+GAP),y:bandTop,w:WIDTH,h:height}));
-          bandTop+=height+GAP;
-        }
-      }
       stageHeight=bandTop+24;
       stage.style.width=stageWidth+'px';stage.style.height=stageHeight+'px';
       wires.setAttribute('viewBox',`0 0 ${stageWidth} ${stageHeight}`);
@@ -543,11 +633,20 @@
       });
       drawWires();drawNodes();updateSelection();
       const visibleEdges=validEdges.filter(edge=>positions.has(edge.from)&&positions.has(edge.to)).length;
-      count.textContent=say(`显示 ${positions.size} / ${nodes.length} 个框架 · ${visibleEdges} / ${validEdges.length} 条关系`,`Showing ${positions.size} / ${nodes.length} frameworks · ${visibleEdges} / ${validEdges.length} links`);
+      count.textContent=say(`图中 ${positions.size} / ${graphNodes.length} 个框架 · ${visibleEdges} / ${validEdges.length} 条关系${unlinkedIds.length?` · 另 ${unlinkedIds.length} 个见列表`:''}`,`Graph: ${positions.size} / ${graphNodes.length} frameworks · ${visibleEdges} / ${validEdges.length} links${unlinkedIds.length?` · ${unlinkedIds.length} more in the list`:''}`);
       autoFit?fit():setScale(scale);
       if(focusId)focus(focusId);
     }
-    function reveal(target){
+    function reveal(target,focusDetail=false){
+      if(unlinkedButtons.has(target.id)){
+        selected=target.id;selectedEdge=null;hide();unlinked.open=true;
+        unlinkedDetail.replaceChildren(options.describe(target.id));
+        unlinkedDetail.setAttribute('data-framework-id',target.id);
+        unlinkedDetail.setAttribute('aria-labelledby',unlinkedButtons.get(target.id).id);
+        updateSelection();
+        if(focusDetail){unlinkedDetail.scrollIntoView?.({block:'nearest'});unlinkedDetail.focus({preventScroll:true});}
+        return;
+      }
       let id=target.id;
       while(id){expanded.add(id);id=parent.get(id);}
       selected=target.id;selectedEdge=null;render(false,target.id);
@@ -557,19 +656,19 @@
       if(!query){selected=null;selectedEdge=null;updateSelection();hide();return;}
       const matches=nodes.filter(n=>n.title.toLowerCase().includes(query)||n.summary?.toLowerCase().includes(query));
       searchStatus.textContent=say(`找到 ${matches.length} 个框架`,`Found ${matches.length} frameworks`);
-      for(const node of matches){const item=make('button','lfm-mm-result',`${String(order(node.id)).padStart(2,'0')} · ${node.title}`);item.type='button';item.setAttribute('data-result-id',node.id);item.addEventListener('click',()=>reveal(node));resultList.append(item);}
+      for(const node of matches){const item=make('button','lfm-mm-result',`${String(order(node.id)).padStart(2,'0')} · ${node.title}`);item.type='button';item.setAttribute('data-result-id',node.id);item.addEventListener('click',()=>reveal(node,true));resultList.append(item);}
       if(matches.length)reveal(matches[0]);else{selected=null;selectedEdge=null;updateSelection();hide();}
     });
     const refresh=()=>{if(host.offsetWidth)render(false,selected||primaryRoot);};
-    document.fonts?.ready?.then(refresh);
-    document.fonts?.addEventListener('loadingdone',refresh);
+    document.fonts?.ready?.then(()=>{fontEpoch++;refresh();});
+    document.fonts?.addEventListener('loadingdone',()=>{fontEpoch++;refresh();});
     window.addEventListener('resize',()=>{hide();if(host.offsetWidth)render(true);});
     if(typeof ResizeObserver!=='undefined'){
       let width=-1,height=-1;
       new ResizeObserver(()=>{const w=viewport.clientWidth,h=viewport.clientHeight;if(w===width&&h===height)return;width=w;height=h;hide();if(w>0)requestAnimationFrame(()=>render(false));}).observe(viewport);
     }
     render(true);
-    return {refresh,hide};
+    return {refresh,hide,motion,destroy(){motion?.destroy();hide();hover.remove();}};
   }
   window.LFMMindMap={mount};
 })();

@@ -30,7 +30,9 @@
     const toolbar=make('div',null,'diagram-toolbar'),tools=make('div',null,'diagram-tools');
     const zoomOut=make('button','−'),zoomIn=make('button','+'),fit=make('button',say('适合宽度','Fit width')),overview=make('button',say('查看全图','Overview')),full=make('button',say('全屏查看','Full screen'));
     zoomOut.setAttribute('aria-label',say('缩小关系图','Zoom out'));zoomIn.setAttribute('aria-label',say('放大关系图','Zoom in'));
-    const scaleLabel=make('output','100%');[zoomOut,zoomIn,fit,overview,full].forEach(b=>b.type='button');tools.append(zoomOut,scaleLabel,zoomIn,fit,overview,full);
+    const directionButton=make('button',say('方向演示','Show directions'));
+    directionButton.setAttribute('aria-pressed','false');
+    const scaleLabel=make('output','100%');[zoomOut,zoomIn,fit,overview,full,directionButton].forEach(b=>b.type='button');tools.append(zoomOut,scaleLabel,zoomIn,fit,overview,directionButton,full);
     const legend=make('p',null,'diagram-legend');
     [['source',say('材料依据','Source evidence')],['inference',say('整合推断','Inference')],['feedback',say('反馈 / 回路','Feedback')]].forEach(([kind,label])=>{const item=make('span',null,'diagram-legend-item');const swatch=make('i',null,'diagram-legend-swatch is-'+kind);swatch.setAttribute('aria-hidden','true');item.append(swatch,make('span',label));legend.append(item);});
     toolbar.append(legend,tools);root.append(toolbar);
@@ -104,12 +106,13 @@
     cards.forEach(paintSurface);
     new MutationObserver(()=>{pal=readPal();cards.forEach(paintSurface);}).observe(document.body,{attributes:true,attributeFilter:['data-theme','class','style']});
     // Arrowheads read their colour from the themed CSS class, never a hard-coded fill.
-    const defs=svgEl('defs');[['normal','dg-arrow-normal',11],['feedback','dg-arrow-feedback',11],['inference','dg-arrow-inference',10]].forEach(([kind,cls,size])=>{const m=svgEl('marker',{id:uid+'-'+kind,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:size,markerHeight:size,markerUnits:'userSpaceOnUse',orient:'auto'});m.append(svgEl('path',{d:'M 0 0 L 10 5 L 0 10 Z',class:cls}));defs.append(m);});svg.append(defs);
+    const defs=svgEl('defs');[['normal','dg-arrow-normal',15],['feedback','dg-arrow-feedback',16],['inference','dg-arrow-inference',14]].forEach(([kind,cls,size])=>{const m=svgEl('marker',{id:uid+'-'+kind,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:size,markerHeight:size,markerUnits:'userSpaceOnUse',orient:'auto'});m.append(svgEl('path',{d:'M 0 0 L 10 5 L 0 10 Z',class:cls}));defs.append(m);});svg.append(defs);
     const help=make('p',say('点击任意卡片，查看与它直接相连的卡片及关系；点击空白处恢复全图。','Click a card to see its connected cards and relationships. Click empty space to reset.'),'diagram-help');root.append(help);
     const connections=make('div',null,'diagram-connections');connections.hidden=true;connections.setAttribute('aria-live','polite');root.append(connections);
     if(options.detail){options.detail.hidden=true;}
     const groupLabels=groups.length>1?groups.map(g=>{const label=make('div',say('独立关系分支 · ','Separate branch · ')+nodes.find(n=>g.ids.has(n.id)).title,'diagram-group-label');stage.append(label);return {g,label};}):[];
     const paths=new Map(),flows=new Map(),labels=new Map();let width=surfaceWidth,height=0,scale=1,selected=null,selectedEdge=null,manualZoom=false,fitMode='width';
+    const motion=window.LFMGraphMotion?.mount({root,viewport,button:directionButton,language:options.language});
     function labelMetrics(text){
       if(labelMeasure)labelMeasure.font='700 11px '+(getComputedStyle(root).getPropertyValue('--font-display').trim()||'system-ui');
       const measure=value=>labelMeasure?labelMeasure.measureText(value).width+Array.from(value).length*.11:Array.from(value).length*11.5;
@@ -238,15 +241,13 @@
         mask.firstElementChild.setAttribute('width',width+64);mask.firstElementChild.setAttribute('height',height+64);
       });
     }
-    // One quiet entrance, then a static map. A selected relation gets one
-    // directional cue; all other links remain still and readable.
+    // A quiet entrance is independent of selected/preview direction overlays.
     const RM=matchMedia('(prefers-reduced-motion: reduce)');
     const motionOff=()=>RM.matches||document.body.dataset.motion==='off';
-    let rebuildFrame=0,visibleNow=false,io=null,hasDrawn=false,flowTimer=null;
+    let rebuildFrame=0,visibleNow=false,io=null,hasDrawn=false;
     function applyDraw(){svg.classList.add('is-drawn','is-static');}
     function settleWires(){
       cancelAnimationFrame(rebuildFrame);
-      flowCancel();
       svg.classList.remove('is-drawn');
       rebuildFrame=requestAnimationFrame(()=>{
         rebuildFrame=0;
@@ -257,13 +258,9 @@
     function armDraw(){
       svg.classList.remove('is-drawn','is-flowing');
     }
-    function flowCancel(){clearTimeout(flowTimer);flowTimer=null;svg.classList.remove('is-flowing');}
+    function flowCancel(){motion?.select([]);svg.classList.remove('is-flowing');}
     function startFlow(){
-      if(motionOff()||!selected)return;
-      flowCancel();
-      void svg.getBoundingClientRect();
-      svg.classList.add('is-flowing');
-      flowTimer=setTimeout(flowCancel,2300);
+      motion?.select(!selected?[]:edges.filter(edge=>selectedEdge?edge.id===selectedEdge:edge.from===selected||edge.to===selected).map(edge=>edge.id));
     }
     function playDraw(){
       hasDrawn=true;
@@ -328,7 +325,7 @@
         }
       const isInference=e.evidence==='inference';
       const cls='diagram-wire'+(feedback?' is-feedback':'')+(isInference?' is-inference':'');
-      const p=svgEl('path',{d,class:cls,'aria-hidden':'true','marker-end':`url(#${uid}-${feedback?'feedback':isInference?'inference':'normal'})`});
+      const p=svgEl('path',{d,class:cls,'aria-hidden':'true','data-edge-id':e.id,'data-edge-from':e.from,'data-edge-to':e.to,'marker-end':`url(#${uid}-${feedback?'feedback':isInference?'inference':'normal'})`});
       wireLayer.append(p);paths.set(e.id,p);
       // The flow head rides a second path with identical geometry, stacked above the
       // solid line so the effect runs ON the line rather than replacing it.
@@ -376,12 +373,15 @@
       if(!manualZoom){
         const byWidth=(viewport.clientWidth-24)/width;
         const byHeight=(viewport.clientHeight-24)/height;
-        scale=Math.max(.18,Math.min(1,fitMode==='all'?Math.min(byWidth,byHeight):byWidth))||1;
+        const minimumReadable=fitMode!=='all'&&viewport.clientWidth<820?.8:.18;
+        scale=Math.max(minimumReadable,Math.min(1,fitMode==='all'?Math.min(byWidth,byHeight):byWidth))||1;
       }
       setScale(scale);if(selected)highlight(selected,selectedEdge);
       // A path rebuild must leave a complete still map after the first entrance.
       armDraw();
       settleWires();
+      motion?.replace(edges.filter(edge=>paths.has(edge.id)).map(edge=>({edge,paths:[paths.get(edge.id)],overlays:[flows.get(edge.id)]})));
+      startFlow();
     }
     function setScale(value){
       scale=Math.max(.18,Math.min(1.8,value));stage.style.transform=`scale(${scale})`;
@@ -426,6 +426,7 @@
       hoverAnchor=card;
       hover.classList.add('is-visible');
       hover.setAttribute('aria-hidden','false');
+      motion?.preview(edges.filter(edge=>edgeId?edge.id===edgeId:edge.from===id||edge.to===id).map(edge=>edge.id));
       // Anchor once to the node. A panel that chases the pointer creates a
       // moving gap and makes a slow pointer transfer fail.
       const box=hover.getBoundingClientRect(),anchor=card.getBoundingClientRect();
@@ -515,7 +516,7 @@
       if(on===visibleNow)return;
       visibleNow=on;
       if(on){ if(motionOff()||hasDrawn){hasDrawn=true;applyDraw();return;} playDraw(); }
-      else { flowCancel(); }
+      else { motion?.refresh(); }
     };
     const observer=new ResizeObserver(()=>{if(viewport.clientWidth>0){hideHover();layout();announce();}});observer.observe(viewport);
     if('IntersectionObserver' in window){io=new IntersectionObserver(()=>announce(),{threshold:.12});io.observe(root);}
@@ -529,7 +530,7 @@
       if(motionOff()){hasDrawn=true;applyDraw();}
       else {applyDraw();if(selected)startFlow();}});
     document.addEventListener('lfm-motion-change',()=>{
-      if(motionOff()){flowCancel();hasDrawn=true;applyDraw();}
+      if(motionOff()){motion?.refresh();hasDrawn=true;applyDraw();}
     });
     if(document.fonts)document.fonts.ready.then(()=>layout(true));
     requestAnimationFrame(()=>layout(true));
@@ -537,7 +538,7 @@
        scrolling (a tab click). The host must call it AFTER the panel is laid out —
        a double rAF is the reliable point. */
     function refresh(){ if(viewport.clientWidth<=0)return; layout(); announce(); }
-    return {select,layout,root,positions,refresh};
+    return {select,layout,root,positions,refresh,motion,destroy(){motion?.destroy();observer.disconnect();io?.disconnect();cancelAnimationFrame(rebuildFrame);hideHover();hover.remove();}};
   }
   window.LFMGraphStudio={mount,ordered};
 })();

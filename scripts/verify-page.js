@@ -33,7 +33,7 @@ try {
 
   let browser;
   try {
-    browser = await chromium.launch();
+    browser = await chromium.launch({headless:true,...(process.env.LFM_BROWSER_CHANNEL?{channel:process.env.LFM_BROWSER_CHANNEL}:{})});
   } catch (error) {
     console.log('⚠️  浏览器运行时不可用，已跳过增强验证；请以 verify_static.py 结果为准。');
     console.log('   ' + String(error.message || error).split('\n')[0]);
@@ -432,13 +432,14 @@ try {
       if (await capture.count() < 1) {
         errors.push('❌ 带出处内容没有笔记摘记入口');
       } else {
-        await capture.click({ force: true });
+        await capture.scrollIntoViewIfNeeded();
+        await capture.click();
         const noteDialogOpen = await page.locator('#noteOverlay').evaluate(el => el.classList.contains('active'));
         if (noteDialogOpen) {
           errors.push('❌ 一键保存仍然打开了复制粘贴弹窗');
         } else {
           if (!(await capture.evaluate(el => el.classList.contains('saved')))) errors.push('❌ 一键保存后按钮未显示已保存状态');
-          await capture.click({ force: true });
+          await capture.click();
           await notesTab.click();
           const cards = page.locator('#notesList .personal-note-card');
           if (await cards.count() !== 1) {

@@ -1138,7 +1138,7 @@ body[data-theme="dark"] {
     }
 
     /* ——— Component-specific styles injected by Agent ——— */
-
+    
     .tabs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     .ch-explorer { display:grid; grid-template-columns:190px minmax(0,1fr); gap:18px; margin:20px 0; align-items:start; }
     .ch-nav { display:grid; gap:8px; align-content:start; position:sticky; top:92px; }
@@ -1334,7 +1334,8 @@ body[data-theme="dark"] {
 .unit-source-disclosure{margin:14px 0;padding:12px 16px;border:1px solid var(--line);border-radius:10px;font:13px/1.6 var(--font-display);overflow-wrap:anywhere}.unit-source-disclosure summary{cursor:pointer;font-weight:750}.unit-source-disclosure small{color:var(--muted)}
 #chView[data-source]::after,#chView [data-source]::after{display:none!important}
 #chView .source-target:focus{outline:2px solid var(--blue);outline-offset:3px}
-.content-source-tooltip{position:fixed;z-index:2147483000;max-width:min(520px,calc(100vw - 24px));padding:10px 14px;border-radius:9px;background:var(--ink);color:var(--white);box-shadow:0 5px 20px #0002;font:13px/1.55 var(--font-display);overflow-wrap:anywhere;pointer-events:none;box-sizing:border-box}
+.content-source-tooltip{position:fixed;z-index:2147483000;max-width:min(520px,calc(100vw - 24px));padding:10px 14px;border-radius:9px;background:var(--ink);color:var(--white);box-shadow:0 5px 20px #0002;font:13px/1.55 var(--font-display);overflow-wrap:anywhere;pointer-events:auto;overflow:auto;overscroll-behavior:contain;box-sizing:border-box}
+#contentSourceTooltip{max-width:min(520px,calc(100vw - 24px))}
 .content-source-tooltip[hidden]{display:none!important}
 @media(max-width:640px){.whole-method{padding:14px}.method-map svg{min-width:820px}.method-node-detail{padding:12px}}
 /* Linked rules use the existing detail panel; no extra graph nodes are needed. */
@@ -1471,7 +1472,7 @@ body[data-theme="dark"]{
 .diagram-count{flex-shrink:0;font-size:11px;color:var(--dg-count-ink);border:1px solid var(--dg-count-border);border-radius:30px;padding:8px 12px;white-space:nowrap}
 .diagram-toolbar{padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .diagram-legend{font:11px/1.6 var(--font-display,system-ui);color:var(--dg-legend);margin:0!important}
-.diagram-tools{display:flex;gap:5px;align-items:center}
+.diagram-tools{display:flex;gap:5px;align-items:center;flex-wrap:wrap;min-width:0;max-width:100%}
 .diagram-studio .diagram-tools button{border:1px solid var(--dg-btn-border)!important;background:var(--dg-btn-bg)!important;color:var(--dg-btn-ink)!important;border-radius:8px!important;font:12px/1.2 var(--font-display,system-ui)!important;padding:8px 10px!important;cursor:pointer;white-space:nowrap}
 .diagram-studio .diagram-tools button:hover{background:var(--dg-btn-hover)!important}
 .diagram-tools output{font-size:11px;min-width:38px;text-align:center;color:var(--dg-legend)}
@@ -1502,24 +1503,11 @@ body[data-theme="dark"]{
 .diagram-wires .diagram-edge-label:focus-visible{outline:none}
 .diagram-wires .diagram-edge-label:focus-visible rect{stroke:var(--dg-focus);stroke-width:2.5}
 
-/* The wire draws once on first view. A selected connection gets one direction
-   cue on a separate path; idle maps remain still. Reduced motion shows the
-   complete diagram without either animation.
-   DECLARATION ORDER IS LOAD-BEARING. `.is-drawn` must win over `:not(.is-drawn)`,
-   and the shorter `:not(...)` selector must not be allowed to outrank it, so the
-   finished state is restated LAST and at equal specificity. */
-@media (prefers-reduced-motion: no-preference){
-  .diagram-wires:not(.is-drawn) .diagram-wire{
-    stroke-dasharray:var(--wire-len,400);stroke-dashoffset:var(--wire-len,400);
-  }
-}
-.diagram-wires.is-drawn .diagram-wire{animation:dg-draw var(--draw-dur,900ms) cubic-bezier(.22,.68,.24,1) var(--draw-delay,0ms) both}
-/* The draw-in borrows a dash array to hide the line, so the animation ends on the
-   solid state and `both` holds it there. Restating it as a rule (after the hidden
-   state, above) means the line is solid even if the animation is interrupted. */
-.diagram-wires.is-drawn .diagram-wire{stroke-dasharray:none;stroke-dashoffset:0}
+/* Entrance only changes opacity: source/inference line styles and complete
+   arrow geometry remain intact even when entrance or motion is interrupted. */
+.diagram-wires.is-drawn .diagram-wire{animation:dg-draw var(--draw-dur,900ms) ease var(--draw-delay,0ms) backwards;stroke-dashoffset:0}
 .diagram-wires.is-static.is-drawn .diagram-wire{animation:none}
-@keyframes dg-draw{from{stroke-dasharray:var(--wire-len,400);stroke-dashoffset:var(--wire-len,400)}to{stroke-dasharray:none;stroke-dashoffset:0}}
+@keyframes dg-draw{from{opacity:.25}to{opacity:1}}
 
 /* The cue path shares its wire geometry and stays invisible while idle. */
 .diagram-wires .diagram-flow{
@@ -1533,18 +1521,18 @@ body[data-theme="dark"]{
    signal and an edge can be both. */
 .diagram-wires .diagram-flow.is-inference{--head:20;stroke:var(--dg-flow-inference);stroke-width:2.6}
 .diagram-wires .diagram-flow.is-feedback{--head:34;stroke:var(--dg-flow-feedback);stroke-width:4.4}
-.diagram-wires.is-flowing .diagram-flow.is-active{opacity:var(--flow-op,.88);animation:dg-flow var(--flow-dur,1.5s) linear 1}
-/* The tail trails the head, so a short comet reads as motion rather than a dot. */
-@keyframes dg-flow{from{stroke-dashoffset:var(--flow-travel,600)}to{stroke-dashoffset:0}}
-/* Feedback loops run slower and breathe, so a cycle never reads as a dead end. */
-.diagram-wires.is-flowing .diagram-flow.is-feedback.is-active{animation-duration:2.2s}
-/* Selection leaves the map still and uses one short direction cue. */
-.diagram-wires.is-selecting .diagram-flow.is-active{stroke-width:4.5;animation-duration:1.1s}
+.diagram-wires.is-selecting .diagram-flow.is-active{stroke-width:4.5}
 .diagram-wires.is-selecting .diagram-flow.is-dimmed{opacity:0}
+/* graph-motion.js owns bounded WAAPI cues on duplicate geometry, at most three
+   visible relations at a time. This never animates a base evidence wire. */
+.diagram-flow.is-direction-cue,.lfm-mm-flow.is-direction-cue{filter:drop-shadow(0 0 2px currentColor)}
+.diagram-wire.is-symmetric-highlight,.lfm-mm-wire.is-symmetric-highlight,.diagram-wire.is-symmetric-preview,.lfm-mm-wire.is-symmetric-preview{stroke-width:4}
+.diagram-tools button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--dg-wire)}
+body[data-motion="off"] .diagram-flow,body[data-motion="off"] .lfm-mm-flow{opacity:0!important}
 /* Reduced motion: no travel at all, but the arrows and solid lines remain —
    a composed still image of the finished diagram. */
 @media (prefers-reduced-motion: reduce){
-  .diagram-wires .diagram-flow{opacity:0;animation:none}
+  .diagram-wires .diagram-flow,.lfm-mm-flow{opacity:0!important;animation:none}
 }
 /* Coarse pointers have no hover: never depend on it to reveal anything. */
 @media (hover: none), (pointer: coarse){
@@ -1561,6 +1549,7 @@ body[data-theme="dark"]{
 .diagram-wires .dg-arrow-feedback{fill:var(--dg-arrow-feedback)}
 /* Lighter head for inferred links — the semantic grade survives the art upgrade. */
 .diagram-wires .dg-arrow-inference{fill:var(--dg-arrow-inference);opacity:.85}
+.diagram-wires marker path{stroke:none}
 
 /* WORKAROUND (verified 2026-09-18): inside the transformed stage, backgrounds painted on
    article/div elements (and on ::before) get alpha-blended with white in some Chromium
@@ -1650,9 +1639,23 @@ body[data-theme="dark"]{
 .lfm-mm-tools button,.lfm-mm-search{min-height:37px;padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface-strong);color:var(--ink);font:13px/1.25 var(--font-display)}
 .lfm-mm-tools button{cursor:pointer;transition:background .16s,border-color .16s}
 .lfm-mm-tools button:hover{background:var(--tint-accent-strong);border-color:var(--blue)}
-.lfm-mm-tools button:focus-visible,.lfm-mm-search:focus-visible,.lfm-mm-node button:focus-visible,.lfm-mm-edge-label:focus-visible,.lfm-mm-viewport:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.lfm-mm-tools button:focus-visible,.lfm-mm-search:focus-visible,.lfm-mm-node button:focus-visible,.lfm-mm-edge-label:focus-visible,.lfm-mm-viewport:focus-visible,.lfm-mm-unlinked summary:focus-visible,.lfm-mm-unlinked-item:focus-visible,.lfm-mm-unlinked-detail:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.lfm-mm-tools button:disabled{cursor:default;opacity:.5}
+.lfm-mm-tools button[hidden]{display:none}
 .lfm-mm-search{width:158px;outline:none}
 .lfm-mm-viewport{height:min(67vh,650px);min-height:450px;overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:16px;background-color:var(--paper);background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:22px 22px;scrollbar-color:var(--blue) transparent}
+.lfm-mm-viewport[hidden],.lfm-mm-unlinked-detail[hidden]{display:none}
+.lfm-mm-empty{margin:3px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface-strong);color:var(--muted);font:13px/1.6 var(--font-display)}
+.lfm-mm-unlinked{margin:14px 3px 0;border-top:1px solid var(--line);padding-top:12px;flex:none;min-height:0}
+.lfm-mm-unlinked summary{cursor:pointer;color:var(--muted);font:700 13px/1.5 var(--font-display);overflow-wrap:anywhere}
+.lfm-mm-unlinked-note{margin:10px 0;color:var(--muted);font:12px/1.6 var(--font-display)}
+.lfm-mm-unlinked-list{display:flex;flex-wrap:wrap;gap:7px;max-height:180px;overflow:auto;padding:3px;overscroll-behavior:contain}
+.relation-panel .lfm-mm-unlinked-item{max-width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-strong);color:var(--ink);font:12px/1.5 var(--font-display);overflow-wrap:anywhere;text-align:left;cursor:pointer}
+.relation-panel .lfm-mm-unlinked-item.is-selected{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.lfm-mm-unlinked-detail{margin:12px 0 2px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-strong);font:13px/1.7 var(--font-display);overflow-wrap:anywhere}
+.lfm-mm-unlinked-detail h3{margin:0 0 8px;color:var(--ink);font:700 16px/1.4 var(--font-display)}
+.lfm-mm-unlinked-detail p{margin:0 0 9px}
+.lfm-mm-unlinked-detail .relation-source{color:var(--muted);font-size:12px}
 .lfm-mm-canvas{position:relative;min-width:1px;min-height:1px}
 .lfm-mm-measure{position:absolute;left:-100000px;top:0;visibility:hidden;pointer-events:none;width:228px;contain:layout style}
 .lfm-mm-results{margin:0 3px 14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-strong)}
@@ -1667,8 +1670,11 @@ body[data-theme="dark"]{
 .relation-canvas .lfm-mm-wires{position:absolute;inset:0;display:block;width:100%;height:100%;min-width:0;max-width:none;margin:0;overflow:visible;pointer-events:none}
 .lfm-mm-wire{fill:none;stroke:var(--blue);stroke-width:2.5;opacity:.75;vector-effect:non-scaling-stroke}
 .lfm-mm-wire.is-inference{stroke:var(--gold);stroke-dasharray:7 6}
-.lfm-mm-tip-material{fill:var(--blue)}
-.lfm-mm-tip-inference{fill:var(--gold)}
+.lfm-mm-tip-material{fill:var(--blue);stroke:none}
+.lfm-mm-tip-inference{fill:var(--gold);stroke:none}
+.lfm-mm-flow{fill:none;stroke:var(--blue);stroke-width:4;stroke-linecap:round;opacity:0;pointer-events:none;vector-effect:non-scaling-stroke}
+.lfm-mm-flow.is-inference{stroke:var(--gold)}
+.lfm-mm-edge-label.is-route-fallback rect{stroke-width:1.8}
 .lfm-mm-edge-label{pointer-events:all;cursor:help}
 .lfm-mm-edge-label rect{fill:var(--paper);stroke:var(--blue);stroke-width:1}
 .lfm-mm-edge-label text{fill:var(--ink);font:700 11px/1 var(--font-display)}
@@ -1709,6 +1715,8 @@ html.lfm-mm-scroll-lock{overflow:hidden}
 .lfm-mm:fullscreen .lfm-mm-head,.lfm-mm.is-fullscreen .lfm-mm-head{flex:none}
 .lfm-mm:fullscreen .lfm-mm-viewport,.lfm-mm.is-fullscreen .lfm-mm-viewport{flex:1;min-height:0;height:auto;max-height:none}
 .lfm-mm:fullscreen .lfm-mm-foot,.lfm-mm.is-fullscreen .lfm-mm-foot{flex:none}
+.lfm-mm:fullscreen .lfm-mm-unlinked[open],.lfm-mm.is-fullscreen .lfm-mm-unlinked[open]{max-height:42vh;overflow:auto;overscroll-behavior:contain;flex-shrink:1}
+.lfm-mm.is-empty:fullscreen .lfm-mm-unlinked[open],.lfm-mm.is-empty.is-fullscreen .lfm-mm-unlinked[open]{max-height:none;flex:1;overflow:auto}
 @media(max-width:900px){.lfm-mm-head{display:block}.lfm-mm-tools{justify-content:flex-start;margin-top:14px;max-width:none}.lfm-mm-viewport{height:540px}}
 @media(max-width:620px){.lfm-mm{padding:12px;border-radius:16px}.lfm-mm-tools{gap:5px}.lfm-mm-tools button,.lfm-mm-search{font-size:12px;padding:7px 9px}.lfm-mm-search{flex:1;min-width:110px}.lfm-mm-viewport{height:450px;min-height:380px}.lfm-mm-foot{display:block}.lfm-mm-foot span{display:block}}
 @media(prefers-reduced-motion:reduce){.lfm-mm-node,.lfm-mm-tools button{transition:none}.lfm-mm-node:hover{transform:none}}
@@ -3510,6 +3518,11 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
   body[data-theme] .tabs > .tab{flex:0 0 auto;min-width:0;padding:10px 12px}
   body[data-theme] :is(.note,.note[data-source],.note:nth-child(3n+1),.note:nth-child(4n+1)){padding-bottom:58px}
 }
+/* Keep legacy source and unit-button pseudo tooltips inside the reader width. */
+body[data-theme] [data-source]:not(.note)::after{
+  max-width:calc(100% - 8px);white-space:normal;overflow-wrap:anywhere;box-sizing:border-box;
+}
+body[data-theme] .ch-send[data-tooltip]::after{box-sizing:border-box}
 
   </style>
 </head>
@@ -3608,7 +3621,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
   </div>
 
   <div class="dd-toast" id="ddToast"></div>
-
+  
 <dialog id="methodDialog" class="method-dialog" aria-labelledby="methodTitle">
  <form id="methodForm">
   <div class="method-heading"><h2 id="methodTitle">一键使用方法论</h2>
@@ -4915,6 +4928,81 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
   if(typeof window!=='undefined')window.LFMScrollChain={route};
 })();
 
+/* Shared, bounded direction cues. Geometry and semantic direction belong to renderers. */
+(function(){
+  'use strict';
+  const symmetric=edge=>edge.directed===false||['contrasts','contrast','comparison','parallel','compares'].includes(edge.type||edge.kind);
+  function mount({root,viewport,button,language}){
+    const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+    const listeners=[],animations=new Set();let entries=[],selected=new Set(),timer=null,previewTimer=null,demo=false,cursor=0,destroyed=false;
+    const listen=(target,name,fn,opts)=>{target.addEventListener(name,fn,opts);listeners.push(()=>target.removeEventListener?.(name,fn,opts));};
+    const off=()=>destroyed||reduced.matches||document.body.dataset.motion==='off'||document.hidden;
+    function inView(element){
+      if(!element?.getClientRects().length)return false;
+      const r=element.getBoundingClientRect(),v=viewport.getBoundingClientRect();
+      return r.width+r.height>0&&r.bottom>=Math.max(0,v.top)&&r.top<=Math.min(innerHeight,v.bottom)&&r.right>=Math.max(0,v.left)&&r.left<=Math.min(innerWidth,v.right);
+    }
+    const visible=()=>!off()&&inView(root)&&inView(viewport);
+    function clear(){
+      clearTimeout(timer);clearTimeout(previewTimer);timer=previewTimer=null;
+      animations.forEach(animation=>animation.cancel());animations.clear();
+      entries.forEach(entry=>{entry.overlays.forEach(path=>path.classList.remove('is-direction-cue'));entry.paths.forEach(path=>path.classList.remove('is-symmetric-preview'));});
+      root.classList.remove('is-direction-playing');
+    }
+    function paintSymmetric(){entries.forEach(entry=>entry.paths.forEach(path=>path.classList.toggle('is-symmetric-highlight',symmetric(entry.edge)&&selected.has(entry.edge.id))));}
+    function play(batch){
+      if(!visible())return;
+      root.classList.add('is-direction-playing');
+      batch.forEach(entry=>{
+        if(symmetric(entry.edge))return;
+        const lengths=entry.paths.map(path=>{try{return path.getTotalLength();}catch(_){return 0;}}),total=lengths.reduce((a,b)=>a+b,0);
+        if(!total)return;
+        let elapsed=0;const duration=entry.edge.kind==='feedback'||entry.edge.type==='feedback'?2100:1700;
+        entry.overlays.forEach((path,index)=>{
+          const length=lengths[index],head=Math.min(32,Math.max(12,length*.12));
+          path.classList.add('is-direction-cue');path.style.strokeDasharray=`${head} ${length+head*2}`;
+          if(path.animate){
+            const animation=path.animate([
+              {strokeDashoffset:head,opacity:0},{strokeDashoffset:head-(length+head)*.08,opacity:.9,offset:.08},
+              {strokeDashoffset:head-(length+head)*.92,opacity:.9,offset:.92},{strokeDashoffset:-length,opacity:0}
+            ],{duration:duration*length/total,delay:duration*elapsed/total,easing:'linear',iterations:1,fill:'none'});
+            animations.add(animation);animation.onfinish=()=>{animations.delete(animation);path.classList.remove('is-direction-cue');};
+          }
+          elapsed+=length;
+        });
+      });
+    }
+    function candidates(ids){return entries.filter(entry=>!symmetric(entry.edge)&&(!ids||ids.has(entry.edge.id))&&entry.paths.some(inView));}
+    function tick(){
+      clear();if(!visible())return;
+      const eligible=candidates(demo?null:selected);
+      if(eligible.length){const batch=Array.from({length:Math.min(3,eligible.length)},(_,i)=>eligible[(cursor+i)%eligible.length]);cursor=(cursor+batch.length)%eligible.length;play(batch);}
+      if(demo||selected.size)timer=setTimeout(tick,2800);
+    }
+    function refresh(){clear();paintSymmetric();if(visible()&&(demo||selected.size))tick();}
+    function updateButton(){if(button){button.setAttribute('aria-pressed',String(demo));button.disabled=off();button.textContent=demo?(language==='en'?'Stop directions':'停止方向演示'):(language==='en'?'Show directions':'方向演示');}}
+    if(button)listen(button,'click',()=>{demo=!demo;cursor=0;updateButton();refresh();});
+    listen(document,'lfm-motion-change',()=>{updateButton();refresh();});
+    listen(document,'visibilitychange',()=>{updateButton();refresh();});
+    listen(reduced,'change',()=>{updateButton();refresh();});
+    listen(document,'lfm-panel-change',()=>{clear();requestAnimationFrame(()=>requestAnimationFrame(refresh));});
+    listen(viewport,'scroll',refresh,{passive:true});listen(window,'scroll',refresh,{passive:true});
+    let observer=null,detachObserver=null;
+    if(typeof IntersectionObserver!=='undefined'){observer=new IntersectionObserver(refresh,{threshold:0});observer.observe(root);}
+    if(typeof MutationObserver!=='undefined'){detachObserver=new MutationObserver(()=>{if('isConnected' in root&&!root.isConnected)destroy();});detachObserver.observe(document.body,{childList:true,subtree:true});}
+    function destroy(){if(destroyed)return;clear();destroyed=true;observer?.disconnect();detachObserver?.disconnect();listeners.splice(0).forEach(remove=>remove());}
+    updateButton();
+    return {
+      replace(next){clear();entries=next;refresh();},
+      select(ids){selected=new Set(ids);cursor=0;refresh();},
+      preview(ids){if(!visible())return;clear();const wanted=new Set(ids);entries.filter(entry=>wanted.has(entry.edge.id)&&symmetric(entry.edge)).forEach(entry=>entry.paths.forEach(path=>path.classList.add('is-symmetric-preview')));play(candidates(wanted).slice(0,3));previewTimer=setTimeout(refresh,2300);},
+      refresh,destroy,
+      state(){return{demo,selected:[...selected],running:animations.size,maxBatch:3};}
+    };
+  }
+  window.LFMGraphMotion={mount,symmetric};
+})();
+
 /* Offline diagram studio: one geometry model for cards, ports and routes. */
 (function () {
   'use strict';
@@ -4947,7 +5035,9 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     const toolbar=make('div',null,'diagram-toolbar'),tools=make('div',null,'diagram-tools');
     const zoomOut=make('button','−'),zoomIn=make('button','+'),fit=make('button',say('适合宽度','Fit width')),overview=make('button',say('查看全图','Overview')),full=make('button',say('全屏查看','Full screen'));
     zoomOut.setAttribute('aria-label',say('缩小关系图','Zoom out'));zoomIn.setAttribute('aria-label',say('放大关系图','Zoom in'));
-    const scaleLabel=make('output','100%');[zoomOut,zoomIn,fit,overview,full].forEach(b=>b.type='button');tools.append(zoomOut,scaleLabel,zoomIn,fit,overview,full);
+    const directionButton=make('button',say('方向演示','Show directions'));
+    directionButton.setAttribute('aria-pressed','false');
+    const scaleLabel=make('output','100%');[zoomOut,zoomIn,fit,overview,full,directionButton].forEach(b=>b.type='button');tools.append(zoomOut,scaleLabel,zoomIn,fit,overview,directionButton,full);
     const legend=make('p',null,'diagram-legend');
     [['source',say('材料依据','Source evidence')],['inference',say('整合推断','Inference')],['feedback',say('反馈 / 回路','Feedback')]].forEach(([kind,label])=>{const item=make('span',null,'diagram-legend-item');const swatch=make('i',null,'diagram-legend-swatch is-'+kind);swatch.setAttribute('aria-hidden','true');item.append(swatch,make('span',label));legend.append(item);});
     toolbar.append(legend,tools);root.append(toolbar);
@@ -5021,12 +5111,13 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     cards.forEach(paintSurface);
     new MutationObserver(()=>{pal=readPal();cards.forEach(paintSurface);}).observe(document.body,{attributes:true,attributeFilter:['data-theme','class','style']});
     // Arrowheads read their colour from the themed CSS class, never a hard-coded fill.
-    const defs=svgEl('defs');[['normal','dg-arrow-normal',11],['feedback','dg-arrow-feedback',11],['inference','dg-arrow-inference',10]].forEach(([kind,cls,size])=>{const m=svgEl('marker',{id:uid+'-'+kind,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:size,markerHeight:size,markerUnits:'userSpaceOnUse',orient:'auto'});m.append(svgEl('path',{d:'M 0 0 L 10 5 L 0 10 Z',class:cls}));defs.append(m);});svg.append(defs);
+    const defs=svgEl('defs');[['normal','dg-arrow-normal',15],['feedback','dg-arrow-feedback',16],['inference','dg-arrow-inference',14]].forEach(([kind,cls,size])=>{const m=svgEl('marker',{id:uid+'-'+kind,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:size,markerHeight:size,markerUnits:'userSpaceOnUse',orient:'auto'});m.append(svgEl('path',{d:'M 0 0 L 10 5 L 0 10 Z',class:cls}));defs.append(m);});svg.append(defs);
     const help=make('p',say('点击任意卡片，查看与它直接相连的卡片及关系；点击空白处恢复全图。','Click a card to see its connected cards and relationships. Click empty space to reset.'),'diagram-help');root.append(help);
     const connections=make('div',null,'diagram-connections');connections.hidden=true;connections.setAttribute('aria-live','polite');root.append(connections);
     if(options.detail){options.detail.hidden=true;}
     const groupLabels=groups.length>1?groups.map(g=>{const label=make('div',say('独立关系分支 · ','Separate branch · ')+nodes.find(n=>g.ids.has(n.id)).title,'diagram-group-label');stage.append(label);return {g,label};}):[];
     const paths=new Map(),flows=new Map(),labels=new Map();let width=surfaceWidth,height=0,scale=1,selected=null,selectedEdge=null,manualZoom=false,fitMode='width';
+    const motion=window.LFMGraphMotion?.mount({root,viewport,button:directionButton,language:options.language});
     function labelMetrics(text){
       if(labelMeasure)labelMeasure.font='700 11px '+(getComputedStyle(root).getPropertyValue('--font-display').trim()||'system-ui');
       const measure=value=>labelMeasure?labelMeasure.measureText(value).width+Array.from(value).length*.11:Array.from(value).length*11.5;
@@ -5155,15 +5246,13 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
         mask.firstElementChild.setAttribute('width',width+64);mask.firstElementChild.setAttribute('height',height+64);
       });
     }
-    // One quiet entrance, then a static map. A selected relation gets one
-    // directional cue; all other links remain still and readable.
+    // A quiet entrance is independent of selected/preview direction overlays.
     const RM=matchMedia('(prefers-reduced-motion: reduce)');
     const motionOff=()=>RM.matches||document.body.dataset.motion==='off';
-    let rebuildFrame=0,visibleNow=false,io=null,hasDrawn=false,flowTimer=null;
+    let rebuildFrame=0,visibleNow=false,io=null,hasDrawn=false;
     function applyDraw(){svg.classList.add('is-drawn','is-static');}
     function settleWires(){
       cancelAnimationFrame(rebuildFrame);
-      flowCancel();
       svg.classList.remove('is-drawn');
       rebuildFrame=requestAnimationFrame(()=>{
         rebuildFrame=0;
@@ -5174,13 +5263,9 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     function armDraw(){
       svg.classList.remove('is-drawn','is-flowing');
     }
-    function flowCancel(){clearTimeout(flowTimer);flowTimer=null;svg.classList.remove('is-flowing');}
+    function flowCancel(){motion?.select([]);svg.classList.remove('is-flowing');}
     function startFlow(){
-      if(motionOff()||!selected)return;
-      flowCancel();
-      void svg.getBoundingClientRect();
-      svg.classList.add('is-flowing');
-      flowTimer=setTimeout(flowCancel,2300);
+      motion?.select(!selected?[]:edges.filter(edge=>selectedEdge?edge.id===selectedEdge:edge.from===selected||edge.to===selected).map(edge=>edge.id));
     }
     function playDraw(){
       hasDrawn=true;
@@ -5245,7 +5330,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
         }
       const isInference=e.evidence==='inference';
       const cls='diagram-wire'+(feedback?' is-feedback':'')+(isInference?' is-inference':'');
-      const p=svgEl('path',{d,class:cls,'aria-hidden':'true','marker-end':`url(#${uid}-${feedback?'feedback':isInference?'inference':'normal'})`});
+      const p=svgEl('path',{d,class:cls,'aria-hidden':'true','data-edge-id':e.id,'data-edge-from':e.from,'data-edge-to':e.to,'marker-end':`url(#${uid}-${feedback?'feedback':isInference?'inference':'normal'})`});
       wireLayer.append(p);paths.set(e.id,p);
       // The flow head rides a second path with identical geometry, stacked above the
       // solid line so the effect runs ON the line rather than replacing it.
@@ -5293,12 +5378,15 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       if(!manualZoom){
         const byWidth=(viewport.clientWidth-24)/width;
         const byHeight=(viewport.clientHeight-24)/height;
-        scale=Math.max(.18,Math.min(1,fitMode==='all'?Math.min(byWidth,byHeight):byWidth))||1;
+        const minimumReadable=fitMode!=='all'&&viewport.clientWidth<820?.8:.18;
+        scale=Math.max(minimumReadable,Math.min(1,fitMode==='all'?Math.min(byWidth,byHeight):byWidth))||1;
       }
       setScale(scale);if(selected)highlight(selected,selectedEdge);
       // A path rebuild must leave a complete still map after the first entrance.
       armDraw();
       settleWires();
+      motion?.replace(edges.filter(edge=>paths.has(edge.id)).map(edge=>({edge,paths:[paths.get(edge.id)],overlays:[flows.get(edge.id)]})));
+      startFlow();
     }
     function setScale(value){
       scale=Math.max(.18,Math.min(1.8,value));stage.style.transform=`scale(${scale})`;
@@ -5343,6 +5431,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       hoverAnchor=card;
       hover.classList.add('is-visible');
       hover.setAttribute('aria-hidden','false');
+      motion?.preview(edges.filter(edge=>edgeId?edge.id===edgeId:edge.from===id||edge.to===id).map(edge=>edge.id));
       // Anchor once to the node. A panel that chases the pointer creates a
       // moving gap and makes a slow pointer transfer fail.
       const box=hover.getBoundingClientRect(),anchor=card.getBoundingClientRect();
@@ -5432,7 +5521,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       if(on===visibleNow)return;
       visibleNow=on;
       if(on){ if(motionOff()||hasDrawn){hasDrawn=true;applyDraw();return;} playDraw(); }
-      else { flowCancel(); }
+      else { motion?.refresh(); }
     };
     const observer=new ResizeObserver(()=>{if(viewport.clientWidth>0){hideHover();layout();announce();}});observer.observe(viewport);
     if('IntersectionObserver' in window){io=new IntersectionObserver(()=>announce(),{threshold:.12});io.observe(root);}
@@ -5446,7 +5535,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       if(motionOff()){hasDrawn=true;applyDraw();}
       else {applyDraw();if(selected)startFlow();}});
     document.addEventListener('lfm-motion-change',()=>{
-      if(motionOff()){flowCancel();hasDrawn=true;applyDraw();}
+      if(motionOff()){motion?.refresh();hasDrawn=true;applyDraw();}
     });
     if(document.fonts)document.fonts.ready.then(()=>layout(true));
     requestAnimationFrame(()=>layout(true));
@@ -5454,7 +5543,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
        scrolling (a tab click). The host must call it AFTER the panel is laid out —
        a double rAF is the reliable point. */
     function refresh(){ if(viewport.clientWidth<=0)return; layout(); announce(); }
-    return {select,layout,root,positions,refresh};
+    return {select,layout,root,positions,refresh,motion,destroy(){motion?.destroy();observer.disconnect();io?.disconnect();cancelAnimationFrame(rebuildFrame);hideHover();hover.remove();}};
   }
   window.LFMGraphStudio={mount,ordered};
 })();
@@ -5587,22 +5676,92 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
   const view=document.getElementById('chView');
   if(view){
     const tip=el('div',null,'content-source-tooltip');tip.id='contentSourceTooltip';tip.setAttribute('role','tooltip');tip.hidden=true;document.body.append(tip);
-    let active=null;
-    function hide(){if(active)active.removeAttribute('aria-describedby');active=null;tip.hidden=true;}
-    function show(target,x,y){
-      if(!target||!view.contains(target)){hide();return;}
+    let active=null,hoverTarget=null,focusTarget=null,suppressed=null,showTimer=0,hideTimer=0;
+    const targetOf=node=>{
+      const target=node instanceof Element?node.closest('.source-target[data-source]'):null;
+      return target&&view.contains(target)?target:null;
+    };
+    const visible=target=>target&&view.contains(target)&&!document.hidden&&target.getClientRects().length>0;
+    function clearTimers(){clearTimeout(showTimer);clearTimeout(hideTimer);showTimer=hideTimer=0;}
+    function hide(){clearTimers();if(active)active.removeAttribute('aria-describedby');active=null;tip.hidden=true;}
+    function reset(){hide();hoverTarget=focusTarget=suppressed=null;}
+    function releaseSuppression(){if(suppressed&&suppressed!==hoverTarget&&suppressed!==focusTarget)suppressed=null;}
+    function dismiss(){suppressed=active||hoverTarget||focusTarget;hide();}
+    function show(target){
+      if(!visible(target)||target===suppressed){hide();return;}
       if(active&&active!==target)active.removeAttribute('aria-describedby');active=target;
       tip.textContent=sourceText(target.dataset.source);tip.hidden=false;target.setAttribute('aria-describedby',tip.id);
-      tip.style.left='12px';tip.style.top='12px';
+      // Anchor to the source item, never to a moving pointer. Keep long citations
+      // scrollable within the available space above or below that item.
+      const anchor=target.getBoundingClientRect(),gap=8,margin=12;
+      tip.style.left=margin+'px';tip.style.top=margin+'px';
+      tip.style.maxHeight=Math.max(0,innerHeight-margin*2)+'px';
       const box=tip.getBoundingClientRect();
-      tip.style.left=Math.max(12,Math.min(x+12,innerWidth-box.width-12))+'px';
-      tip.style.top=Math.max(12,Math.min(y+18,innerHeight-box.height-12))+'px';
+      const below=Math.max(0,innerHeight-margin-anchor.bottom-gap),above=Math.max(0,anchor.top-gap-margin);
+      const useBelow=below>=box.height||below>=above;
+      tip.style.maxHeight=Math.min(innerHeight-margin*2,Math.max(below,above))+'px';
+      const height=tip.getBoundingClientRect().height;
+      tip.style.left=Math.max(margin,Math.min(anchor.left,innerWidth-box.width-margin))+'px';
+      tip.style.top=Math.max(margin,Math.min(useBelow?anchor.bottom+gap:anchor.top-gap-height,innerHeight-height-margin))+'px';
     }
-    view.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;show(e.target.closest('[data-source]'),e.clientX,e.clientY);});
-    view.addEventListener('pointerleave',hide);
-    view.addEventListener('focusin',e=>{const t=e.target.closest('.source-target');if(t){const b=t.getBoundingClientRect();show(t,b.left,b.bottom);}else hide();});
-    view.addEventListener('focusout',hide);document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});
-    window.addEventListener('scroll',hide,true);window.addEventListener('resize',hide);
+    function queueShow(target,delay=300){
+      clearTimers();
+      if(target===active&&!tip.hidden)return;
+      hide();
+      if(!visible(target)||target===suppressed)return;
+      showTimer=setTimeout(()=>{showTimer=0;if(target===hoverTarget||target===focusTarget)show(target);},delay);
+    }
+    function queueHide(){
+      clearTimers();
+      hideTimer=setTimeout(()=>{
+        hideTimer=0;
+        const target=hoverTarget||focusTarget;
+        if(visible(target)&&target!==suppressed)show(target);else hide();
+      },120);
+    }
+    function hover(target){
+      if(target===hoverTarget)return;
+      hoverTarget=target;releaseSuppression();
+      if(target)queueShow(target);else queueHide();
+    }
+    view.addEventListener('pointerover',e=>{if(e.pointerType!=='touch')hover(targetOf(e.target));});
+    view.addEventListener('pointerout',e=>{
+      if(e.pointerType==='touch'||tip.contains(e.relatedTarget))return;
+      hover(targetOf(e.relatedTarget));
+    });
+    view.addEventListener('pointerleave',e=>{
+      if(e.pointerType!=='touch'&&!tip.contains(e.relatedTarget))hover(null);
+    });
+    tip.addEventListener('pointerenter',clearTimers);
+    tip.addEventListener('pointerleave',e=>{
+      hoverTarget=targetOf(e.relatedTarget);releaseSuppression();queueHide();
+    });
+    view.addEventListener('focusin',e=>{
+      const nextFocus=targetOf(e.target);
+      // A real blur/refocus is a new keyboard entry, even while the pointer
+      // remains over this item. Repeated focusin without a blur stays dismissed.
+      if(nextFocus&&nextFocus!==focusTarget&&suppressed===nextFocus)suppressed=null;
+      focusTarget=nextFocus;releaseSuppression();clearTimers();
+      if(focusTarget)show(focusTarget);else hide();
+    });
+    view.addEventListener('focusout',e=>{
+      focusTarget=targetOf(e.relatedTarget);releaseSuppression();
+      if(focusTarget)show(focusTarget);else if(!hoverTarget)hide();
+    });
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')dismiss();});
+    document.addEventListener('click',e=>{
+      if(!view.contains(e.target)&&!tip.contains(e.target))reset();
+    });
+    document.addEventListener('focusin',e=>{
+      if(!view.contains(e.target)&&!tip.contains(e.target))reset();
+    });
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)dismiss();});
+    window.addEventListener('blur',dismiss);
+    window.addEventListener('scroll',e=>{if(!(e.target instanceof Element&&tip.contains(e.target)))dismiss();},true);
+    window.addEventListener('resize',dismiss);
+    // Programmatic tab changes also close the body-level tooltip.
+    const panel=view.closest('.panel');
+    if(panel)new MutationObserver(()=>{if(!view.getClientRects().length)reset();}).observe(panel,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
     function decorate(){
       const id=document.querySelector('.ch-nav-btn.active')?.getAttribute('data-ch');const u=(data.contentUnits||[]).find(x=>x.id===id);if(!u)return;
       const detail=u.sourceDetails||{};
@@ -5627,7 +5786,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       }
     }
     decorate();
-    const observer=new MutationObserver(()=>{observer.disconnect();hide();decorate();observer.observe(view,{childList:true,subtree:true});});observer.observe(view,{childList:true,subtree:true});
+    const observer=new MutationObserver(()=>{observer.disconnect();reset();decorate();observer.observe(view,{childList:true,subtree:true});});observer.observe(view,{childList:true,subtree:true});
   }
   const model=data.methodology,template=document.getElementById('wholeMethodTemplate'),host=document.getElementById('rules');
   if(!model||!template||!host)return;
@@ -5758,7 +5917,8 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
 (function () {
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
-  const WIDTH = 228, GAP = 20, MARGIN = 48;
+  const WIDTH = 228, MARGIN = 48;
+  let serial=0;
   const make = (tag, cls, value) => {
     const element = document.createElement(tag);
     if (cls) element.className = cls;
@@ -5773,6 +5933,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
 
   function mount(host, options) {
     const en = options.language === 'en';
+    const uid='lfm-mm-'+(++serial);
     const say = (zh, english) => en ? english : zh;
     const sourceText = options.sourceText || (value => String(value || ''));
     const nodes = [...(options.nodes || [])].sort((a,b)=>(a.sourceOrder||0)-(b.sourceOrder||0)), edges = options.edges || [];
@@ -5787,9 +5948,12 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     const order = id => byId.get(id)?.sourceOrder || nodes.findIndex(node => node.id === id) + 1;
     for (const list of adjacency.values()) list.sort((a,b) => order(a.id)-order(b.id));
 
+    // Presentation never changes the canonical inventory. Only nodes participating
+    // in actual framework links enter the graph; the rest remain searchable below.
+    const graphNodes = nodes.filter(node => adjacency.get(node.id).length);
     // The forest is a layout aid; it does not change canonical edge meaning.
     const components = [], discovered = new Set();
-    for (const node of nodes) {
+    for (const node of graphNodes) {
       if (discovered.has(node.id)) continue;
       const component = [], pending = [node.id]; discovered.add(node.id);
       for (let i=0; i<pending.length; i++) {
@@ -5815,10 +5979,9 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     const roots = components.map(component => [...component].sort((a,b) =>
       totalDistance(a,component.length)-totalDistance(b,component.length)
       || adjacency.get(b).length-adjacency.get(a).length || order(a)-order(b))[0]);
-    if (!roots.length) return {refresh(){},hide(){}};
-    const linkedRoots = roots.filter(id => adjacency.get(id).length > 0);
+    const linkedRoots = roots;
     const unlinkedIds = nodes.filter(node => !adjacency.get(node.id).length).map(node => node.id);
-    const primaryRoot = linkedRoots[0] || roots[0];
+    const primaryRoot = linkedRoots[0] || null;
     const parent = new Map(), childEdge = new Map(), children = new Map(nodes.map(n=>[n.id,[]]));
     const side = new Map();
     for (const rootId of roots) {
@@ -5839,6 +6002,8 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     const expanded = new Set(roots), positions = new Map();
     let scale = 1, selected = null, selectedEdge = null;
     let span=350, branchGap=20, stageWidth=0, stageHeight=0;
+    let measuredSpan=350,measuredGap=20,measurementKey='',fontEpoch=0;
+    const curveSamples=new WeakMap();
     const measuredHeights=new Map(),labelSizes=new Map();
     const crossSlots=new Map(),wirePlans=new Map(),routedEdges=new Set();let routingBottom=0;
     let sectionPositions = [];
@@ -5847,12 +6012,12 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     const heading = make('div','lfm-mm-heading');
     heading.append(make('span','lfm-mm-eyebrow',say('FRAMEWORK RELATIONSHIPS / 思维导图','FRAMEWORK RELATIONSHIPS / MIND MAP')),
       make('h3','',options.title),
-      make('p','',say('有关联的框架集中展示，其余框架在下方排列。点击节点追踪直接关联，悬浮查看解释和出处。','Linked frameworks appear together; other frameworks are listed below. Select a node to highlight its direct links; hover for explanations and sources.')));
+      make('p','',say('图中展示有依据的框架关系。点击节点追踪直接关联；其余框架可通过下方折叠列表或搜索查看解释和出处。','The graph shows recorded framework relationships. Select a node to trace its direct links; use the collapsed list or search for other frameworks and their sources.')));
     header.append(heading);
     const tools = make('div','lfm-mm-tools');
     const search = make('input','lfm-mm-search'); search.type='search'; search.placeholder=say('搜索框架…','Search frameworks…');
     search.setAttribute('aria-label',say('搜索框架','Search frameworks'));
-    search.setAttribute('aria-controls','lfm-framework-search-results');
+    search.setAttribute('aria-controls',uid+'-search-results');
     tools.append(search);
     const button = (name, action, label) => {
       const item=make('button','',name); item.type='button';
@@ -5860,16 +6025,18 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       item.addEventListener('click',action); tools.append(item);
       return item;
     };
-    button(say('收起','Collapse'),()=>{expanded.clear();roots.forEach(id=>expanded.add(id));render(true);});
-    button(say('展开全部','Expand all'),()=>{nodes.forEach(n=>expanded.add(n.id));render(false,primaryRoot);});
-    button(say('适应宽度','Fit width'),()=>fit());
+    const collapseButton=button(say('收起','Collapse'),()=>{expanded.clear();roots.forEach(id=>expanded.add(id));render(true);});
+    const expandButton=button(say('展开全部','Expand all'),()=>{graphNodes.forEach(n=>expanded.add(n.id));render(false,primaryRoot);});
+    const fitButton=button(say('适应宽度','Fit width'),()=>fit());
     button(say('清除高亮','Clear selection'),()=>{selected=null;selectedEdge=null;updateSelection();hide();});
-    button('−',()=>setScale(scale-.12),say('缩小','Zoom out'));
-    button('＋',()=>setScale(scale+.12),say('放大','Zoom in'));
+    const zoomOutButton=button('−',()=>setScale(scale-.12),say('缩小','Zoom out'));
+    const zoomInButton=button('＋',()=>setScale(scale+.12),say('放大','Zoom in'));
+    const directionButton=button(say('方向演示','Show directions'),()=>{});
+    directionButton.setAttribute('aria-pressed','false');
     const fullscreenButton=button(say('全屏展开','Fullscreen'),()=>toggleFullscreen());
     fullscreenButton.setAttribute('aria-pressed','false');
     header.append(tools); shell.append(header);
-    const results=make('div','lfm-mm-results');results.id='lfm-framework-search-results';results.hidden=true;
+    const results=make('div','lfm-mm-results');results.id=uid+'-search-results';results.hidden=true;
     const searchStatus=make('p','lfm-mm-search-status');searchStatus.setAttribute('role','status');
     const resultList=make('div','lfm-mm-result-list');results.append(searchStatus,resultList);shell.append(results);
 
@@ -5879,12 +6046,35 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     const wires=svg('svg','lfm-mm-wires'), nodeLayer=make('div','lfm-mm-nodes');
     const sectionLayer=make('div','lfm-mm-sections');
     stage.append(wires,sectionLayer,nodeLayer); canvas.append(stage); viewport.append(canvas); shell.append(viewport);
+    viewport.hidden=!graphNodes.length;
+    shell.classList.toggle('is-empty',!graphNodes.length);
+    if(!graphNodes.length){
+      shell.append(make('p','lfm-mm-empty',say('本节暂无可展示的框架关系。框架内容与出处可通过下方列表或搜索查看。','No framework relationships are recorded for this section. Use the list or search to read the frameworks and their sources.')));
+      [collapseButton,expandButton,fitButton,zoomOutButton,zoomInButton,directionButton].forEach(item=>{item.disabled=true;item.hidden=true;});
+    }
     const footer=make('div','lfm-mm-foot');
     const materialCount=validEdges.filter(edge=>edge.evidence==='material').length;
-    footer.append(make('span','',say(`实线：材料依据 ${materialCount} 条 · 虚线：辅助推断 ${validEdges.length-materialCount} 条`,`Solid: ${materialCount} material links · Dashed: ${validEdges.length-materialCount} inferences`)));
+    if(validEdges.length)footer.append(make('span','',say(`实线：材料依据 ${materialCount} 条 · 虚线：辅助推断 ${validEdges.length-materialCount} 条`,`Solid: ${materialCount} material links · Dashed: ${validEdges.length-materialCount} inferences`)));
     const count=make('span',''); footer.append(count); shell.append(footer);
     if (extraEdges.length) shell.append(make('p','lfm-mm-extra',say(`含 ${extraEdges.length} 条交叉关系；展开相关节点后显示连线。`,`Includes ${extraEdges.length} cross-links; expand their nodes to show the wires.`)));
+    const unlinked=make('details','lfm-mm-unlinked'),unlinkedList=make('div','lfm-mm-unlinked-list');
+    const unlinkedDetail=make('div','lfm-mm-unlinked-detail'),unlinkedButtons=new Map();
+    unlinkedDetail.id=uid+'-unlinked-detail';unlinkedDetail.hidden=true;
+    unlinkedDetail.setAttribute('role','region');unlinkedDetail.tabIndex=-1;
+    if(unlinkedIds.length){
+      unlinked.append(make('summary','',say(`另有 ${unlinkedIds.length} 个框架未纳入关系图`,`Other frameworks outside the graph (${unlinkedIds.length})`)),
+        make('p','lfm-mm-unlinked-note',say('按原文顺序列出；选择框架查看解释、适用条件和出处。未纳入本图不代表它与其他内容没有关系。','Listed in source order. Select a framework for its explanation, applicability and sources. Its absence from this graph does not establish that no relationships exist.')),
+        unlinkedList,unlinkedDetail);
+      for(const id of unlinkedIds){
+        const node=byId.get(id),item=make('button','lfm-mm-unlinked-item',`${String(order(id)).padStart(2,'0')} · ${node.title}`);
+        item.type='button';item.id=uid+'-unlinked-'+unlinkedButtons.size;
+        item.setAttribute('data-framework-id',id);item.setAttribute('aria-controls',unlinkedDetail.id);item.setAttribute('aria-expanded','false');
+        item.addEventListener('click',()=>reveal(node,true));unlinkedButtons.set(id,item);unlinkedList.append(item);
+      }
+      shell.append(unlinked);
+    }
     host.replaceChildren(shell);
+    const motion=window.LFMGraphMotion?.mount({root:shell,viewport,button:directionButton,language:options.language});
     const measureLayer=make('div','lfm-mm-measure');measureLayer.setAttribute('aria-hidden','true');shell.append(measureLayer);
 
     // Reuse exactly the source-grounded hover content supplied to the old graph.
@@ -5967,6 +6157,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
     document.addEventListener('keydown',event=>{
       if(event.key!=='Escape')return;
       if(fallbackFullscreen)exitFallback();
+      else if(document.fullscreenElement===shell){event.preventDefault();Promise.resolve(document.exitFullscreen()).catch(()=>{});}
       else hide();
     });
     function edgeDescription(edge) {
@@ -5974,6 +6165,7 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       content.append(make('h3','',byId.get(edge.from).title+' → '+byId.get(edge.to).title));
       content.append(make('p','lfm-mm-hover-type',`${edge.label} · ${edge.evidence==='material'?say('材料依据','Material evidence'):say('辅助理解的推断','Inference')}`));
       content.append(make('p','',edge.explanation));
+      if(routedEdges.has(edge))content.append(make('p','lfm-mm-hover-type',say('局部折线：曲线候选未通过避障检查，改用保留通道；关系含义与方向保持原样。','Local orthogonal fallback: cubic candidates failed clearance checks; a reserved corridor preserves the recorded relation and direction.')));
       content.append(make('p','hover-source',say('出处：','Source: ')+sourceText(edge.source)));
       options.sourceOriginal?.(content,edge.source);
       return content;
@@ -5983,8 +6175,13 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       return measuredHeights.get(id)||72;
     }
     function measure() {
+      const style=getComputedStyle(shell),rootStyle=getComputedStyle(document.documentElement);
+      const key=JSON.stringify([document.body.dataset.theme,viewport.clientWidth,style.fontFamily,style.fontSize,
+        style.getPropertyValue('--font-display'),rootStyle.fontSize,fontEpoch,
+        graphNodes.map(node=>[node.id,node.title]),validEdges.map(edge=>edge.label)]);
+      if(key===measurementKey)return;
       measureLayer.replaceChildren();measuredHeights.clear();labelSizes.clear();
-      for(const node of nodes){
+      for(const node of graphNodes){
         const box=make('div',`lfm-mm-node${linkedRoots.includes(node.id)?' is-root':''}`);
         box.style.position='relative';box.style.width=WIDTH+'px';box.style.minHeight='0';
         const body=make('button','lfm-mm-select');body.style.minHeight='72px';body.tabIndex=-1;
@@ -6009,8 +6206,9 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
         if(line.trim())lines.push(line.trim());if(!lines.length)lines.push(text);
         labelSizes.set(edge,{lines,lineHeight,width:Math.max(48,...lines.map(line=>width(line)+22)),height:Math.max(24,lines.length*lineHeight+10)});
       }
-      span=Math.max(350,WIDTH+Math.max(0,...[...labelSizes.values()].map(item=>item.width))+64);
-      branchGap=Math.max(20,Math.max(0,...[...labelSizes.values()].map(item=>item.height))+16);
+      measuredSpan=Math.max(350,WIDTH+Math.max(0,...[...labelSizes.values()].map(item=>item.width))+64);
+      measuredGap=Math.max(20,Math.max(0,...[...labelSizes.values()].map(item=>item.height))+16);
+      measurementKey=key;
       measureLayer.replaceChildren();
     }
     function visibleChildren(id) {return expanded.has(id)?children.get(id):[];}
@@ -6073,15 +6271,16 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       for(let i=0;i<32;i++){const mid=(outside+within)/2;inside(mid)?within=mid:outside=mid;}
       return [start,splitCurve(points,outside)[1]];
     }
-    function wirePlan(edge) {
+    function wirePlan(edge,settings={}) {
       const from=positions.get(edge.from),to=positions.get(edge.to);
       const left=from.x+from.w/2<to.x+to.w/2;
-      const x1=left?rightPort(edge.from):from.x,x2=left?to.x:rightPort(edge.to);
+      const exit=settings.exit??(left?1:-1),entry=settings.entry??(left?-1:1);
+      const x1=exit===1?rightPort(edge.from):from.x,x2=(entry===1?rightPort(edge.to):to.x)+entry*8;
       const y1=from.y+from.h/2,y2=to.y+to.h/2;
-      const bend=Math.abs(x2-x1)<WIDTH/2?(left?120:-120):(x2-x1)*.52;
-      const points=[{x:x1,y:y1},{x:x1+bend,y:y1},{x:x2-bend,y:y2},{x:x2,y:y2}];
+      const bend=settings.reach??Math.max(64,Math.abs(x2-x1)*.52),lift=settings.lift||0;
+      const points=[{x:x1,y:y1},{x:x1+exit*bend,y:y1+lift},{x:x2+entry*bend,y:y2+lift},{x:x2,y:y2}];
       const size=labelSizes.get(edge);
-      return {...size,center:{x:(x1+x2)/2,y:(y1+y2)/2},pieces:wirePieces(points,size.width,size.height)};
+      return {...size,center:splitCurve(points,.5)[0][3],points,pieces:wirePieces(points,size.width,size.height)};
     }
     function labelRect(plan,pad=8) {
       return {left:plan.center.x-plan.width/2-pad,right:plan.center.x+plan.width/2+pad,
@@ -6101,31 +6300,57 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       return leave>0&&enter<1;
     }
     function curveHits(points,rect) {
-      // Check segments as well as samples, including thin labels between samples.
-      let previous=points[0];
-      for(let n=1;n<=192;n++){
-        const next=splitCurve(points,n/192)[0][3];
-        if(segmentHits(previous,next,rect))return true;
-        previous=next;
+      // Reject distant obstacles before sampling; share one sampled curve
+      // across its remaining obstacles instead of resampling for every card.
+      let sampled=curveSamples.get(points);
+      if(!sampled){
+        sampled={bounds:{left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),
+          top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))},polyline:null};
+        curveSamples.set(points,sampled);
       }
+      const b=sampled.bounds;
+      if(b.right<rect.left||b.left>rect.right||b.bottom<rect.top||b.top>rect.bottom)return false;
+      if(!sampled.polyline){
+        const [a,b,c,d]=points;sampled.polyline=[a];
+        for(let n=1;n<=192;n++){
+          const t=n/192,u=1-t;
+          sampled.polyline.push({x:u*u*u*a.x+3*u*u*t*b.x+3*u*t*t*c.x+t*t*t*d.x,
+            y:u*u*u*a.y+3*u*u*t*b.y+3*u*t*t*c.y+t*t*t*d.y});
+        }
+      }
+      for(let n=1;n<sampled.polyline.length;n++)if(segmentHits(sampled.polyline[n-1],sampled.polyline[n],rect))return true;
       return false;
     }
     function planRoutes() {
       wirePlans.clear();routedEdges.clear();
       const visible=validEdges.filter(edge=>positions.has(edge.from)&&positions.has(edge.to));
-      for(const edge of visible){
-        if(assignedEdges.has(edge))wirePlans.set(edge,wirePlan(edge));else routedEdges.add(edge);
-      }
-      const plans=[...wirePlans],rects=plans.map(([edge,plan])=>({edge,rect:labelRect(plan)}));
       const cards=[...positions].map(([id,p])=>({id,rect:cardRect(id,p)}));
-      for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++)if(intersects(rects[i].rect,rects[j].rect)){
-        routedEdges.add(rects[i].edge);routedEdges.add(rects[j].edge);
-      }
-      for(const [edge,plan] of plans){
-        if(cards.some(card=>intersects(labelRect(plan),card.rect)))routedEdges.add(edge);
-        const blockers=[...rects.filter(item=>item.edge!==edge).map(item=>item.rect),
-          ...cards.filter(card=>card.id!==edge.from&&card.id!==edge.to).map(item=>item.rect)];
-        if(blockers.some(rect=>plan.pieces.some(piece=>curveHits(piece,rect))))routedEdges.add(edge);
+      const bottom=Math.max(80,...cards.map(card=>card.rect.bottom))+24;
+      // A fixed candidate budget applies equally to tree branches and cross-links.
+      // These are genuine cubic arches, not rounded orthogonal paths.
+      for(const edge of [...visible.filter(edge=>assignedEdges.has(edge)),...visible.filter(edge=>!assignedEdges.has(edge))]){
+        const accepted=[...wirePlans.values()],labels=accepted.map(plan=>labelRect(plan));
+        const blockers=[...labels,...cards.filter(card=>card.id!==edge.from&&card.id!==edge.to).map(card=>card.rect)];
+        const from=positions.get(edge.from),to=positions.get(edge.to),forward=from.x<to.x;
+        const candidates=[wirePlan(edge)];
+        for(const [exit,entry] of [[forward?1:-1,forward?-1:1],[1,1],[-1,-1],[forward?-1:1,forward?1:-1]]){
+          for(const lift of [0,-64,64,-144,144,-280,280]){
+            candidates.push(wirePlan(edge,{exit,entry,lift,reach:Math.max(90,Math.min(260,Math.abs(from.x-to.x)*.52))}));
+          }
+        }
+        const safe=candidates.find(plan=>{
+          const rect=labelRect(plan);
+          if(rect.left<12||rect.right>stageWidth-12||rect.top<60||rect.bottom>bottom)return false;
+          if(plan.points.some(p=>p.x<12||p.x>stageWidth-12||p.y<60||p.y>bottom))return false;
+          if(plan.pieces.some(piece=>curveHits(piece,labelRect(plan,0))))return false;
+          const endpointCards=[from,to].map(p=>({left:p.x+.5,right:p.x+p.w-.5,top:p.y+.5,bottom:p.y+p.h-.5}));
+          if(endpointCards.some(box=>plan.pieces.some(piece=>curveHits(piece,box))))return false;
+          if([...cards.map(card=>card.rect),...labels].some(box=>intersects(rect,box)))return false;
+          if(blockers.some(box=>plan.pieces.some(piece=>curveHits(piece,box))))return false;
+          if(accepted.some(other=>other.pieces.some(piece=>curveHits(piece,rect))))return false;
+          return true;
+        });
+        if(safe)wirePlans.set(edge,safe);else routedEdges.add(edge);
       }
       return visible.filter(edge=>routedEdges.has(edge));
     }
@@ -6139,23 +6364,29 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
         el.classList.toggle('is-muted',activeSelection&&!nearby.has(id));
         el.querySelector('.lfm-mm-select')?.setAttribute('aria-pressed',String(id===selected));
       });
+      unlinkedButtons.forEach((item,id)=>{
+        const active=id===selected;
+        item.classList.toggle('is-selected',active);item.setAttribute('aria-expanded',String(active));
+      });
+      unlinkedDetail.hidden=!unlinkedButtons.has(selected);
       wires.querySelectorAll('[data-edge-from]').forEach(el=>{
         const active=selectedEdge?el.getAttribute('data-edge-id')===selectedEdge.id:!!selected&&(el.getAttribute('data-edge-from')===selected||el.getAttribute('data-edge-to')===selected);
         el.classList.toggle('is-active',active);el.classList.toggle('is-muted',activeSelection&&!active);
         if(el.getAttribute('role')==='button')el.setAttribute('aria-pressed',String(active));
       });
+      motion?.select(selectedEdge?[selectedEdge.id]:selected?validEdges.filter(edge=>edge.from===selected||edge.to===selected).map(edge=>edge.id):[]);
     }
     function drawWires() {
       wires.replaceChildren();
       const defs=svg('defs');
-      [['material','lfm-mm-arrow'],['inference','lfm-mm-arrow-inference']].forEach(([kind,id])=>{
+      [['material',uid+'-arrow'],['inference',uid+'-arrow-inference']].forEach(([kind,id])=>{
         const marker=svg('marker'); marker.id=id;marker.setAttribute('viewBox','0 0 10 10');
-        marker.setAttribute('refX','9');marker.setAttribute('refY','5');marker.setAttribute('markerWidth','6');
-        marker.setAttribute('markerHeight','6');marker.setAttribute('orient','auto-start-reverse');
+        marker.setAttribute('refX','10');marker.setAttribute('refY','5');marker.setAttribute('markerWidth','15');
+        marker.setAttribute('markerHeight','15');marker.setAttribute('markerUnits','userSpaceOnUse');marker.setAttribute('orient','auto');
         const tip=svg('path');tip.setAttribute('d','M 0 0 L 10 5 L 0 10 z');tip.setAttribute('class',`lfm-mm-tip-${kind}`);
         marker.append(tip);defs.append(marker);
       }); wires.append(defs);
-      const labelLayer=svg('g','lfm-mm-label-layer');
+      const flowLayer=svg('g','lfm-mm-flow-layer'),labelLayer=svg('g','lfm-mm-label-layer'),motionEntries=[];
       const routing=window.LFMFrameworkRouting;
       const bounds={left:12,right:stageWidth-12,top:60,bottom:routingBottom};
       const obstacles=[...positions].filter(([id])=>adjacency.get(id).length).map(([id,p])=>cardRect(id,p));
@@ -6171,20 +6402,25 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
         if(routedEdges.has(edge)){
           const slot=crossSlots.get(edge);center={x:slot.x,y:slot.y};
           const fromPort=rightPort(edge.from),toPort=rightPort(edge.to);
-          const start={x:fromPort+6,y:y1},end={x:toPort+6,y:y2};
+          const start={x:fromPort+6,y:y1},end={x:toPort+14,y:y2};
           const before={x:slot.x-width/2-16,y:slot.y},after={x:slot.x+width/2+16,y:slot.y};
           const prefix=routing.route(start,before,obstacles,bounds),suffix=routing.route(after,end,obstacles,bounds);
           paths=[routing.path(routing.simplify([{x:fromPort,y:y1},...prefix,{x:slot.x-width/2-7,y:slot.y}])),
-            routing.path(routing.simplify([{x:slot.x+width/2+7,y:slot.y},...suffix,{x:toPort,y:y2}]))];
+            routing.path(routing.simplify([{x:slot.x+width/2+7,y:slot.y},...suffix,{x:toPort+8,y:y2}]))];
         }else{const plan=wirePlans.get(edge);center=plan.center;paths=plan.pieces.map(curvePath);}
+        const entry={edge,paths:[],overlays:[]};
         paths.forEach((description,index)=>{
           const path=svg('path',`lfm-mm-wire${edge.evidence==='material'?'':' is-inference'}${cross?' is-cross':''}`);
           path.setAttribute('data-edge-id',edge.id);
           path.setAttribute('data-edge-from',edge.from);path.setAttribute('data-edge-to',edge.to);
+          path.setAttribute('data-route-kind',routedEdges.has(edge)?'orthogonal-fallback':cross?'cross-curve':'tree-curve');
+          if(routedEdges.has(edge))path.setAttribute('data-route-reason','No clear cubic candidate within 3 bounded layout passes (29 candidates per relation per pass); reserved obstacle-free corridor.');
           path.setAttribute('d',description);
-          if(index===1)path.setAttribute('marker-end',`url(#${edge.evidence==='material'?'lfm-mm-arrow':'lfm-mm-arrow-inference'})`);
+          if(index===1)path.setAttribute('marker-end',`url(#${uid+(edge.evidence==='material'?'-arrow':'-arrow-inference')})`);
           wires.append(path);
+          const flow=svg('path',`lfm-mm-flow${edge.evidence==='material'?'':' is-inference'}`);flow.setAttribute('d',description);flow.setAttribute('data-edge-id',edge.id);flow.setAttribute('aria-hidden','true');flowLayer.append(flow);entry.paths.push(path);entry.overlays.push(flow);
         });
+        motionEntries.push(entry);
         const group=svg('g','lfm-mm-edge-label');group.setAttribute('tabindex','0');
         group.setAttribute('role','button');
         group.setAttribute('aria-label',`${byId.get(edge.from).title} → ${byId.get(edge.to).title}：${edge.label}`);
@@ -6192,21 +6428,23 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
         if(edge.evidence!=='material')group.classList.add('is-inference');
         group.setAttribute('data-edge-from',edge.from);group.setAttribute('data-edge-to',edge.to);
         group.setAttribute('data-edge-id',edge.id);
+        if(routedEdges.has(edge)){group.classList.add('is-route-fallback');const title=svg('title');title.textContent=say('局部折线：曲线候选未通过避障检查，使用保留通道。','Local orthogonal fallback: cubic candidates failed clearance checks; using a reserved corridor.');group.append(title);}
         const rect=svg('rect');
         rect.setAttribute('x',String(-width/2));rect.setAttribute('y',String(-height/2));
         rect.setAttribute('width',String(width));rect.setAttribute('height',String(height));rect.setAttribute('rx','10');
         const caption=svg('text');caption.setAttribute('text-anchor','middle');caption.setAttribute('dominant-baseline','central');
         lines.forEach((line,index)=>{const part=svg('tspan');part.setAttribute('x','0');part.setAttribute('y',String((index-(lines.length-1)/2)*lineHeight));part.textContent=line;caption.append(part);});
         group.append(rect,caption);
-        group.addEventListener('pointerenter',()=>show(edgeDescription(edge),group));
+        group.addEventListener('pointerenter',()=>{show(edgeDescription(edge),group);motion?.preview([edge.id]);});
         group.addEventListener('pointerleave',scheduleHide);
-        group.addEventListener('focus',()=>show(edgeDescription(edge),group));
+        group.addEventListener('focus',()=>{show(edgeDescription(edge),group);motion?.preview([edge.id]);});
         group.addEventListener('blur',scheduleHide);
         group.addEventListener('click',()=>{selected=null;selectedEdge=edge;updateSelection();show(edgeDescription(edge),group);});
         group.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selected=null;selectedEdge=edge;updateSelection();show(edgeDescription(edge),group);}});
         labelLayer.append(group);
       }
-      wires.append(labelLayer);
+      wires.append(flowLayer,labelLayer);motion?.replace(motionEntries);
+      shell.setAttribute('data-curved-relations',String(motionEntries.length-routedEdges.size));shell.setAttribute('data-orthogonal-fallbacks',String(routedEdges.size));shell.setAttribute('data-curve-candidates-per-pass','29');
     }
     function drawNodes() {
       nodeLayer.replaceChildren();
@@ -6230,18 +6468,32 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
           toggle.addEventListener('click',()=>{open?expanded.delete(id):expanded.add(id);render(false,id);});
           box.append(toggle);
         }
-        box.addEventListener('pointerenter',()=>show(options.describe(id),box));
+        const preview=()=>motion?.preview(validEdges.filter(edge=>edge.from===id||edge.to===id).map(edge=>edge.id));
+        box.addEventListener('pointerenter',()=>{show(options.describe(id),box);preview();});
         box.addEventListener('pointerleave',scheduleHide);
-        box.addEventListener('focusin',()=>show(options.describe(id),box));
+        box.addEventListener('focusin',()=>{show(options.describe(id),box);preview();});
         box.addEventListener('focusout',scheduleHide);
         nodeLayer.append(box);
       }
     }
     function render(autoFit,focusId) {
+      if(!graphNodes.length){
+        positions.clear();nodeLayer.replaceChildren();wires.replaceChildren();sectionLayer.replaceChildren();
+        stageWidth=0;stageHeight=0;stage.style.width='0px';stage.style.height='0px';
+        canvas.style.width='0px';canvas.style.height='0px';
+        count.textContent=say(`关系图中 0 个框架 · ${nodes.length} 个框架可在列表中查看`,`0 frameworks in graph · ${nodes.length} frameworks available in the list`);
+        shell.setAttribute('data-curved-relations','0');shell.setAttribute('data-orthogonal-fallbacks','0');
+        motion?.replace([]);updateSelection();return;
+      }
       if(viewport.clientWidth<=0)return;
       measure();
-      positions.clear();hide();sectionPositions=[];crossSlots.clear();
-      const layouts=linkedRoots.map(rootId=>{
+      hide();crossSlots.clear();
+      let layouts,bandTop,routedVisible,best=null,passes=0;
+      // Try at most two reflows before routing unresolved tree or cross-link conflicts.
+      for(let attempt=0;attempt<3;attempt++){
+      span=Math.round(measuredSpan*(1+attempt*.28));branchGap=Math.round(measuredGap*(1+attempt*.6));
+      positions.clear();sectionPositions=[];
+      layouts=linkedRoots.map(rootId=>{
         const lists=['left','right'].map(branch=>children.get(rootId).filter(id=>side.get(id)===branch));
         const depths=lists.map(list=>Math.max(0,...list.map(maxDepth)));
         const totals=lists.map(list=>list.reduce((sum,id)=>sum+branchHeight(id),0)+branchGap*Math.max(0,list.length-1));
@@ -6249,13 +6501,13 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       });
       const leftDepth=Math.max(0,...layouts.map(item=>item.depths[0]));
       const rightDepth=Math.max(0,...layouts.map(item=>item.depths[1]));
-      const gridColumns=Math.max(1,Math.min(4,Math.floor((viewport.clientWidth-MARGIN*2+GAP)/(WIDTH+GAP))));
-      stageWidth=Math.max(MARGIN*2+WIDTH+(leftDepth+rightDepth)*span,unlinkedIds.length?MARGIN*2+WIDTH*gridColumns+GAP*(gridColumns-1):0);
+      stageWidth=MARGIN*2+WIDTH+(leftDepth+rightDepth)*span;
       const rootX=layouts.length?MARGIN+leftDepth*span+WIDTH/2:stageWidth/2;
-      let bandTop=24;
+      bandTop=24;
       if(layouts.length){
         sectionPositions.push({top:bandTop,text:say(`已标注关系 · ${layouts.length} 组 · ${validEdges.length} 条连线`,`Linked frameworks · ${layouts.length} groups · ${validEdges.length} links`)});
-        bandTop+=44;
+        // A bounded top arch corridor lets cross-links pass above same-row cards.
+        bandTop+=140;
       }
       layouts.forEach(({rootId,lists,totals,height})=>{
         const centerY=bandTop+height/2;
@@ -6266,27 +6518,24 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
         });
         bandTop+=height+12;
       });
-      const routedVisible=planRoutes();
+      routedVisible=planRoutes();passes++;
+      const conflicts=routedVisible.length;
+      if(!best||conflicts<best.conflicts){
+        best={conflicts,positions:new Map(positions),sections:[...sectionPositions],width:stageWidth,top:bandTop,
+          plans:new Map(wirePlans),routed:new Set(routedEdges),visible:[...routedVisible]};
+      }
+      if(!conflicts)break;
+      }
+      positions.clear();best.positions.forEach((p,id)=>positions.set(id,p));sectionPositions=best.sections;
+      stageWidth=best.width;bandTop=best.top;routedVisible=best.visible;
+      wirePlans.clear();best.plans.forEach((p,edge)=>wirePlans.set(edge,p));routedEdges.clear();best.routed.forEach(edge=>routedEdges.add(edge));
+      shell.setAttribute('data-layout-passes',String(passes));
       if(routedVisible.length){
         stageWidth+=Math.max(...routedVisible.map(edge=>labelSizes.get(edge).width))+48;
         bandTop+=12;
         for(const edge of routedVisible){const size=labelSizes.get(edge);crossSlots.set(edge,{...size,x:stageWidth/2,y:bandTop+size.height/2});bandTop+=size.height+28;}
       }
       routingBottom=bandTop+12;
-      if(unlinkedIds.length){
-        bandTop+=layouts.length?24:0;
-        sectionPositions.push({top:bandTop,text:say(`暂未建立连线 · ${unlinkedIds.length} 个框架`,`No links recorded yet · ${unlinkedIds.length} frameworks`)});
-        bandTop+=48;
-        const columns=gridColumns;
-        const rowWidth=columns*WIDTH+(columns-1)*GAP;
-        const gridLeft=(stageWidth-rowWidth)/2;
-        for(let offset=0;offset<unlinkedIds.length;offset+=columns){
-          const row=unlinkedIds.slice(offset,offset+columns);
-          const height=Math.max(...row.map(nodeHeight));
-          row.forEach((id,index)=>positions.set(id,{x:gridLeft+index*(WIDTH+GAP),y:bandTop,w:WIDTH,h:height}));
-          bandTop+=height+GAP;
-        }
-      }
       stageHeight=bandTop+24;
       stage.style.width=stageWidth+'px';stage.style.height=stageHeight+'px';
       wires.setAttribute('viewBox',`0 0 ${stageWidth} ${stageHeight}`);
@@ -6300,11 +6549,20 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       });
       drawWires();drawNodes();updateSelection();
       const visibleEdges=validEdges.filter(edge=>positions.has(edge.from)&&positions.has(edge.to)).length;
-      count.textContent=say(`显示 ${positions.size} / ${nodes.length} 个框架 · ${visibleEdges} / ${validEdges.length} 条关系`,`Showing ${positions.size} / ${nodes.length} frameworks · ${visibleEdges} / ${validEdges.length} links`);
+      count.textContent=say(`图中 ${positions.size} / ${graphNodes.length} 个框架 · ${visibleEdges} / ${validEdges.length} 条关系${unlinkedIds.length?` · 另 ${unlinkedIds.length} 个见列表`:''}`,`Graph: ${positions.size} / ${graphNodes.length} frameworks · ${visibleEdges} / ${validEdges.length} links${unlinkedIds.length?` · ${unlinkedIds.length} more in the list`:''}`);
       autoFit?fit():setScale(scale);
       if(focusId)focus(focusId);
     }
-    function reveal(target){
+    function reveal(target,focusDetail=false){
+      if(unlinkedButtons.has(target.id)){
+        selected=target.id;selectedEdge=null;hide();unlinked.open=true;
+        unlinkedDetail.replaceChildren(options.describe(target.id));
+        unlinkedDetail.setAttribute('data-framework-id',target.id);
+        unlinkedDetail.setAttribute('aria-labelledby',unlinkedButtons.get(target.id).id);
+        updateSelection();
+        if(focusDetail){unlinkedDetail.scrollIntoView?.({block:'nearest'});unlinkedDetail.focus({preventScroll:true});}
+        return;
+      }
       let id=target.id;
       while(id){expanded.add(id);id=parent.get(id);}
       selected=target.id;selectedEdge=null;render(false,target.id);
@@ -6314,19 +6572,19 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
       if(!query){selected=null;selectedEdge=null;updateSelection();hide();return;}
       const matches=nodes.filter(n=>n.title.toLowerCase().includes(query)||n.summary?.toLowerCase().includes(query));
       searchStatus.textContent=say(`找到 ${matches.length} 个框架`,`Found ${matches.length} frameworks`);
-      for(const node of matches){const item=make('button','lfm-mm-result',`${String(order(node.id)).padStart(2,'0')} · ${node.title}`);item.type='button';item.setAttribute('data-result-id',node.id);item.addEventListener('click',()=>reveal(node));resultList.append(item);}
+      for(const node of matches){const item=make('button','lfm-mm-result',`${String(order(node.id)).padStart(2,'0')} · ${node.title}`);item.type='button';item.setAttribute('data-result-id',node.id);item.addEventListener('click',()=>reveal(node,true));resultList.append(item);}
       if(matches.length)reveal(matches[0]);else{selected=null;selectedEdge=null;updateSelection();hide();}
     });
     const refresh=()=>{if(host.offsetWidth)render(false,selected||primaryRoot);};
-    document.fonts?.ready?.then(refresh);
-    document.fonts?.addEventListener('loadingdone',refresh);
+    document.fonts?.ready?.then(()=>{fontEpoch++;refresh();});
+    document.fonts?.addEventListener('loadingdone',()=>{fontEpoch++;refresh();});
     window.addEventListener('resize',()=>{hide();if(host.offsetWidth)render(true);});
     if(typeof ResizeObserver!=='undefined'){
       let width=-1,height=-1;
       new ResizeObserver(()=>{const w=viewport.clientWidth,h=viewport.clientHeight;if(w===width&&h===height)return;width=w;height=h;hide();if(w>0)requestAnimationFrame(()=>render(false));}).observe(viewport);
     }
     render(true);
-    return {refresh,hide};
+    return {refresh,hide,motion,destroy(){motion?.destroy();hide();hover.remove();}};
   }
   window.LFMMindMap={mount};
 })();

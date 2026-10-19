@@ -145,7 +145,7 @@ class ActionRuleLedgerTests(unittest.TestCase):
             self.write_structural_review(kb)
             (kb / 'source-heading-index.json').unlink()
             with self.assertRaisesRegex(ValueError, 'source-heading-index'):
-                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new')
+                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new', compatibility='1.03')
             self.assertFalse(any((root / 'out').glob('*')))
 
     def test_isolated_ledger_packaging_and_linked_rule_details(self):
@@ -155,7 +155,7 @@ class ActionRuleLedgerTests(unittest.TestCase):
             shutil.copytree(self.kb, kb)
             (kb / 'action-rule-ledger.json').write_text(json.dumps(self.ledger(), ensure_ascii=False), encoding='utf-8')
             self.write_structural_review(kb)
-            result = finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new')
+            result = finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new', compatibility='1.03')
             manifest = json.loads(Path(result['manifest']).read_text(encoding='utf-8'))
             self.assertIn('action-rule-ledger', manifest['checks'])
             self.assertIn('content-review', manifest['checks'])
@@ -207,12 +207,12 @@ class ActionRuleLedgerTests(unittest.TestCase):
             (kb / 'action-rule-ledger.json').write_text(json.dumps(self.ledger()), encoding='utf-8')
             (kb / 'content-review.json').unlink()
             with self.assertRaisesRegex(ValueError, 'content-review.json is required'):
-                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new')
+                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new', compatibility='1.03')
             self.write_structural_review(kb)
             with (kb / 'full_text.txt').open('a', encoding='utf-8') as f:
                 f.write('\nChanged input')
             with self.assertRaisesRegex(ValueError, 'stale reviewedInputs'):
-                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new')
+                finalize(ROOT / 'examples/overview-systematic-demo.json', kb, root / 'out', 'new', compatibility='1.03')
             self.assertFalse(any((root / 'out').glob('*')))
 
 

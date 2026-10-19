@@ -26,7 +26,7 @@ For bilingual layout verification, include long chapter/source names, line wrapp
 
 ## Extract logic before drawing
 
-For new overview pages read `whole-material-methodology.md` and `diagram-design-and-delivery.md`. Core frameworks shows cards first and offers a framework-only relationship map using relationships. Action rules shows the whole-material structure from methodology.json and the application button. Both diagrams preserve all nodes without pagination; neither replaces the other.
+For new overview pages read `whole-material-methodology.md` and `diagram-design-and-delivery.md`. Core frameworks shows cards first and offers a framework-only relationship map using relationships. Action rules shows the whole-material structure from methodology.json and the application button. All canonical frameworks remain available without pagination through cards, search and an optional collapsed list outside the map. The framework canvas contains linked nodes only; the methodology preserves all its nodes. Neither view replaces the other.
 
 For overview pages, identify source-backed frameworks and action rules and assign unique stable `id` values across both arrays. Generate the required top-level `relationships` array from actual arguments, dependencies and applications; it may be empty only under the applicable reviewed-absence rules. Never connect nodes merely to fill the diagram.
 
@@ -54,7 +54,13 @@ For each new systematic overview, review the visible framework graph by relation
 
 Legacy pages without methodology retain framework cards and their relationship map. New pages place the complete whole-material structure in Action rules, alongside the original rule cards. Core frameworks always opens with framework cards and can switch to its own relationship map. No separate seventh module or model-authored layout code is needed.
 
-For frameworks without a recorded framework-to-framework edge, use “暂未建立连线” / “No links recorded yet”. Node details say “本图暂未建立该框架与其他框架的连线；需要关系解释时仍须核对原材料。” / “No links to other frameworks are recorded in this view yet; check the original material before interpreting this absence.” Do not claim that the source itself provides no relationships merely because the page graph is empty. Preserve the systematic ledger's reviewed absence/independent-framework reasons and its content gate.
+Frameworks without a recorded framework-to-framework edge remain outside the canvas in an initially collapsed list. Use a short localized count/entry there and “暂未建立连线” / “No links recorded yet” in its details. Complete the source-first omission review before treating an item as unlinked; filtering does not excuse missing relationships. Node details say “本图暂未建立该框架与其他框架的连线；需要关系解释时仍须核对原材料。” / “No links to other frameworks are recorded in this view yet; check the original material before interpreting this absence.” Do not claim that the source itself provides no relationships merely because the page graph is empty. Preserve the systematic ledger's reviewed absence/independent-framework reasons and its content gate.
+
+## New systematic relation inventory · 1.04
+
+Follow `relation-ledger.md`: original unit inventories precede global graph decisions, with explicit acceptance/merge/rejection and evidence. Review both existing edges and missing source-supported logic. Relation-type summaries remain consistency reports, not proof that every relationship was discovered. An empty relation kind does not itself justify a source-absence conclusion. Frameworks and whole-methodology nodes have different purposes; a relation need not be copied mechanically into both graphs.
+
+Evidence must support the link, condition and direction, not merely show both concepts occur. Record material/inference separately. Reviewed unlinked frameworks cite actual scopes and findings; repeated result descriptions do not establish independence. No relation type, density, node count or connectedness quota justifies fabricated links.
 
 ## Relationship display names
 

@@ -612,11 +612,15 @@ def main():
     if "--check" in sys.argv[1:]:
         sys.exit(run_dependency_check())
 
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 2 or "--help" in sys.argv[1:] or "-h" in sys.argv[1:]:
         print("Usage: extract.py <document>... [--mode technical|text] [--ocr auto|off|force] [--output-dir DIR]", file=sys.stderr)
         print("       extract.py --check    # report which extractors are installed", file=sys.stderr)
         print(f"Supported formats: {supported_formats_message()}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(0 if "--help" in sys.argv[1:] or "-h" in sys.argv[1:] else 1)
+
+    if any(arg.split('=', 1)[0] == '--execution-choice' for arg in sys.argv[1:]):
+        print('ERROR: --execution-choice was removed in 1.1.0. Remove it and run extraction directly.', file=sys.stderr)
+        sys.exit(2)
 
     raw_input_paths, extraction_mode, install_mode, ocr_mode = parse_arguments(sys.argv)
     use_cache = cache_enabled(sys.argv)

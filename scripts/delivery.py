@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 
-def check_canonical(page, kb):
+def check_canonical(page, kb, include_units=True):
     """Read-only preflight. Missing synthesis is never silently fabricated."""
     from methods import validate_library, validate_binding, patterns
     from methodology import validate, markdown
@@ -21,7 +21,11 @@ def check_canonical(page, kb):
     validate_library(page['methodLibrary'], kb)
     validate_binding(page)
     validate(page['methodology'], page, kb)
-    return {'patterns.md': patterns(page['methodLibrary']), 'methodology.md': markdown(page['methodology'])}
+    exports = {'patterns.md': patterns(page['methodLibrary']), 'methodology.md': markdown(page['methodology'])}
+    if include_units:
+        from unit_records import checked_unit_exports
+        exports.update(checked_unit_exports(page, kb))
+    return exports
 
 
 def export_readable(kb, exports):
@@ -29,6 +33,7 @@ def export_readable(kb, exports):
     kb = Path(kb)
     for name, content in exports.items():
         p = kb / name
+        p.parent.mkdir(parents=True, exist_ok=True)
         if p.exists() and p.read_text(encoding='utf-8') != content:
             old = p.read_bytes()
             archive = kb / 'history'

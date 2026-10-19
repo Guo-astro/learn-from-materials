@@ -6,7 +6,7 @@
 
 > 将书籍、PDF、PPT、Word、网页与多份资料转化为可追溯知识库、交互式学习网页和同源生成的 Markdown。
 
-![Status](https://img.shields.io/badge/version-1.0%20release-blue)
+![Status](https://img.shields.io/badge/version-1.1.0-blue)
 ![Agent Skills](https://img.shields.io/badge/standard-Agent%20Skills-5b6ee1)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -16,6 +16,12 @@
 它适用于能够读取文件、运行本地命令并识别 `SKILL.md` 的 Agent 环境，例如 WorkBuddy、Codex、Claude Code 和 GitHub Copilot CLI。纯聊天环境如果不能访问文件系统或执行 Python，只能使用其中的部分提示流程，不能完成材料提取、覆盖校验和 HTML 渲染。
 
 <img width="2400" height="1600" alt="overview" src="https://github.com/user-attachments/assets/45f3dd38-32e5-47f5-a56e-c27dbb31706d" />
+
+## 1.1.0
+
+采用单一顺序工作流，直接提取材料，无需执行模式选择或额外选择文件。来源优先的单元记录同源派生页面与章节说明；逐单元回读和最终查错、查漏／应用检查保留实际证据和依赖指纹。
+
+新增关系候选账本、检查点恢复、验收输入冻结及阶段计时；改进框架曲线、图外未连线清单、方向提示和出处浮片。每份交付包含 ZIP 顶层的独立方法论 Markdown。完整变化与本地 1.06 迁移说明见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 主要能力
 
@@ -27,7 +33,7 @@
 
 内容导学支持核心思想、要点和结论的鼠标悬停、键盘聚焦出处提示，以及触屏可展开的“原文出处”。切换单元后保持有效。有核验的细粒度定位时显示对应页码；否则如实显示单元或结论页段。
 
-参见[整体方法论协议](references/whole-material-methodology.md)、[自编三页教学 PDF](examples/method-lab-synthetic.pdf)与[系统学习示例](examples/overview-systematic-demo.json)。该示例包含覆盖审计、行动规则、内容复核及原文标题索引记录；篇幅短是为了演示与回归测试，不能作为真实材料的提取上限。
+参见[整体方法论协议](references/whole-material-methodology.md)、[自编三页教学 PDF](examples/method-lab-synthetic.pdf)与[系统学习示例](examples/overview-sequential-systematic.json)。该示例包含覆盖审计、行动规则、内容复核及原文标题索引记录；篇幅短是为了演示与回归测试，不能作为真实材料的提取上限。
 
 ### 可积累的方法论库
 
@@ -56,7 +62,7 @@
 
 ### 框架很多、连线较少时
 
-有关系的框架紧凑分组，暂未建立连线的框架在下方按原文顺序排成响应式网格，编号与卡片保持一致。“暂未建立连线”只表示当前图的记录状态，不证明概念在原材料中彼此独立。框架不设数量上限，也不新增虚构根节点或装饰性关系。搜索显示全部命中结果；选节点追踪直接关系，选连线只高亮它的两个端点。中英文长标签先度量、换行，再为连线留出真正空隙；有冲突时重排路由。展开全部仍保留所有节点、交叉关系与循环。
+有关系的框架紧凑分组；未连线框架保留在图外默认收起的原文顺序清单中，卡片与搜索仍完整可用。全无边时省略大型画布；展开全部仅展开有关系节点与全部原始连线。“暂未建立连线”是当前记录状态，不证明原文概念独立，仍须先完成关系遗漏复核。不新增虚构根节点或装饰性关系，保留全部规范知识与出处。
 
 ### 两种学习深度
 
@@ -119,13 +125,13 @@
 
 ![《Attention Is All You Need》方法论关系图的编号节点与连线](assets/showcase/08-attention-paper-methodology-map-cn.png)
 
-这些截图展示页面组织方式，不构成对每项论断、出处或生成结论的独立核验。原材料及截图涉及的内容版权归各自权利人所有；本仓库不包含这些原始材料或其完整生成结果。随包 Method Lab 原材料与知识库是自编的合成教学示例，按 MIT 许可发布。如需交互演示，可打开[合成材料系统学习示例](examples/systematic-demo.html)或[中文版功能示例](examples/features-zh.html)。
+这些截图展示页面组织方式，不构成对每项论断、出处或生成结论的独立核验。原材料及截图涉及的内容版权归各自权利人所有；本仓库不包含这些原始材料或其完整生成结果。随包 Method Lab 原材料与知识库是自编的合成教学示例，按 MIT 许可发布。如需交互演示，可打开[合成材料系统学习示例](examples/sequential-systematic-demo.html)或[中文版功能示例](examples/features-zh.html)。
 
 ## 快速开始
 
 ### 1. 安装
 
-**安装本次 1.0 release 文件包：**解压 `learn-from-materials-1.0-release.zip`，将里面完整的 `learn-from-materials/` 文件夹放入客户端的 Skill 搜索目录。该文件夹顶层应直接包含 `SKILL.md`、`scripts/`、`references/` 与 `templates/`，避免多套一层目录。备份已有同名技能后再更新；如客户端没有发现新版本，重新加载或重启客户端。
+**安装本次 1.1.0 文件包：**解压 `learn-from-materials-1.1.0.zip`，将里面完整的 `learn-from-materials/` 文件夹放入客户端的 Skill 搜索目录。该文件夹顶层应直接包含 `SKILL.md`、`scripts/`、`references/` 与 `templates/`，避免多套一层目录。备份已有同名技能后再更新；如客户端没有发现新版本，重新加载或重启客户端。
 
 本仓库地址：`https://github.com/dmoshehun-prog/learn-from-materials`。下表的 git 命令用于安装仓库默认分支，其内容不保证与本次 ZIP 完全一致；安装本次正式版时使用 ZIP。
 
@@ -210,7 +216,7 @@ python3 scripts/prepare_quick.py page-ready.json --knowledge-base <主题>.learn
 python3 scripts/finalize.py page-ready.json --knowledge-base <主题>.learnkb --output-dir ./delivery --name learning-quick
 ```
 
-新系统学习同样使用上述绑定命令，还需按协议准备完整知识库、[`summary-ledger.json`](references/summary-coverage-schema.md)、[`action-rule-ledger.json`](references/action-rule-ledger.md) 和 [`content-review.json`](references/content-review-schema.md)；PDF 还需[原文标题索引](references/source-heading-index.md)。复核记录必须对应最终绑定的 `page-ready.json`。完成后：
+新系统学习先按[单元组装流程](references/systematic-workflow.md)编写来源优先的 unit-record-v2，由 `pipeline.py assemble` 派生页面与章节文件；再绑定规范方法，完成 relation-ledger-v1、分阶段复核及完整知识库、[`summary-ledger.json`](references/summary-coverage-schema.md)、[`action-rule-ledger.json`](references/action-rule-ledger.md) 和 [`content-review.json`](references/content-review-schema.md)；PDF 还需[原文标题索引](references/source-heading-index.md)。复核记录必须对应最终绑定的 `page-ready.json`。完成后：
 
 ```bash
 python3 scripts/finalize.py page-ready.json --knowledge-base <主题>.learnkb --output-dir ./delivery --name learning-systematic
@@ -218,7 +224,7 @@ python3 scripts/finalize.py page-ready.json --knowledge-base <主题>.learnkb --
 
 ### 交付与验证边界
 
-`finalize.py` 会绑定规范方法、核验对应深度的出处/覆盖要求、派生可读方法文件并打包。输出包括 `learning-quick.html` 或 `learning-systematic.html`、同源 `.md`、绑定的 `.page.json`、`.learnkb/`、`.delivery.json` 与 ZIP；`patterns.md`、`methodology.md` 在知识库内。输出目录须在原知识库之外，已有同名交付会被保留，需要使用新名称。
+`finalize.py` 会绑定规范方法、核验对应深度的出处/覆盖要求、派生可读方法文件并打包。输出包括 `learning-quick.html` 或 `learning-systematic.html`、同源 `.md`、绑定的 `.page.json`、`.learnkb/`、`.delivery.json` 与 ZIP；`patterns.md`、`methodology.md` 在知识库内，另输出独立 `<name>.methodology.md` 并放入 ZIP 顶层。输出目录须在原知识库之外，已有同名交付会被保留，需要使用新名称。
 
 交付保留提取原文、来源映射与安全/性能报告，可重建的提取缓存保留在原工作目录。Windows 遇到路径长度错误时，使用较短的工作目录和输出路径。
 
@@ -261,7 +267,7 @@ python3 scripts/verify_static.py examples/features-zh.html
 
 `scripts/tests/fixtures/legacy.learnkb/` 是用于契约与回归测试的合成 fixture，不代表真实书籍或 PDF 的审计结论；其中的来源路径是可移植的示例路径。
 
-当前文件包版本为 `1.0 release`，修订标记 `release`。新系统学习 overview 需要 v2 逐单元行动规则/关系账本、按来源先于总结执行的 `content-review.json` 第二遍复核；PDF 还需要核实原文标题索引。内容脚本能发现过期记录、缺失映射、错引和缩短的封闭清单，但不证明语义正确或绝对零遗漏。初始交付固定标记为 `static-only`、`visualReview: not-run`；获准使用浏览器时可运行 `verify-layout.cjs`，再生成独立的 layout-reviewed 交付。已有旧页面可继续阅读，旧账本使用明确的兼容选项。方法卡使用 methods-v1，整体结构使用 methodology-v1，规则账本使用 action-rule-ledger-v2。
+当前文件包版本为 `1.1.0`，修订 `release`。新系统学习使用 unit-record-v2、unit-content-review-v2、content-review-v3 及 relation-ledger-v1；当前执行者分别完成原文回读、正确性与遗漏／应用检查，身份如实记录。程序检查结构、证据和新鲜度，不证明语义零遗漏。初始交付仍为 static-only，未运行的浏览器／人工视觉检查保持 not-run。旧数据按明确的兼容契约处理。
 
 ## 安全与隐私
 
@@ -286,7 +292,7 @@ python3 scripts/verify_static.py examples/features-zh.html
 
 本仓库新增与修改内容同样按 MIT License 发布。上游作者和维护者不为本项目的后续扩展背书。
 
-1.0 release 保留当前可调整的液态玻璃设计、三主题配色、浮片滚轮隔离、方法论全屏、直线/直角折线中央关系标签、精简节点卡片和行动条件单次前缀。已有页面调整保留页面/方法 ID、出处与读者存储关联；详见 `SKILL.md`、`references/visual-system.md` 和 `templates/themes/README.md`。
+1.1.0 保留液态玻璃、三主题、本地存储和稳定页面／方法 ID；框架图采用曲线优先和图外未连线清单，方法论图保留直线／必要折线。出处、方向与证据分类保持规范数据绑定。
 
 ## 出处语言、英文排版与扫描 PDF
 
@@ -294,3 +300,5 @@ python3 scripts/verify_static.py examples/features-zh.html
 - 较长的英文导航和卡片文字须留足空间或正常换行；条件前缀只显示一次。实际浏览器需检查正常大小及 200% 文字/缩放。
 - 扫描 PDF 需要文字识别能力，不强制安装 OCR。已有 OCR 或模型视觉在能取得真实页面图片时都可采用；保存逐页转录与不确定处，不默认安装依赖。
 - `scripts/tests/fixtures/` 中保留兼容和合成验证输入，不是新页面生产模板，也不证明真实材料已全量学习。
+
+发行包结构与版本校验：`python3 scripts/verify_release.py`。当前顺序系统学习的完整记录见 [新版示例](examples/overview-sequential-systematic.json) 和 [编写项目](examples/sequential-authoring/project.json)。

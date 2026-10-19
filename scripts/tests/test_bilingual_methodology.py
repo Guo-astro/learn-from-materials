@@ -69,9 +69,9 @@ class BilingualMethodologyTests(unittest.TestCase):
     def test_english_complete_delivery_uses_v1_metadata_and_preserves_source(self):
         before = {p.relative_to(self.kb): hashlib.sha256(p.read_bytes()).hexdigest() for p in self.kb.rglob('*') if p.is_file()}
         with tempfile.TemporaryDirectory() as temporary:
-            result = finalize(ROOT / 'examples/overview-en-content.json', self.kb, Path(temporary) / 'out', 'english')
+            result = finalize(ROOT / 'examples/overview-en-content.json', self.kb, Path(temporary) / 'out', 'english', compatibility='1.03')
             manifest = json.loads(Path(result['manifest']).read_text(encoding='utf-8'))
-            self.assertEqual(manifest['skillVersion'], '1.0')
+            self.assertEqual(manifest['skillVersion'], '1.1.0')
             self.assertEqual(manifest['skillRevision'], 'release')
             self.assertEqual(manifest['visualReview'], 'not-run')
             with zipfile.ZipFile(result['archive']) as archive:

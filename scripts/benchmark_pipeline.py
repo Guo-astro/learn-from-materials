@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -17,7 +18,11 @@ def run_once(extract_script: Path, inputs: list[str], output_dir: Path, no_cache
     if no_cache:
         command.append("--no-cache")
     started = time.perf_counter()
-    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    # Captured CLI diagnostics must use the same encoding on parent and child,
+    # including when Windows' console code page differs from Python UTF-8 mode.
+    completed = subprocess.run(command, text=True, capture_output=True, check=False,
+                               encoding="utf-8", errors="replace",
+                               env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     elapsed = round(time.perf_counter() - started, 6)
     report_path = output_dir / "performance-report.json"
     report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}

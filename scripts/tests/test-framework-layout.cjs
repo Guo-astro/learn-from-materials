@@ -10,12 +10,30 @@ const node=(i,en=true)=>({id:'n'+i,sourceOrder:i,title:en?'Framework '+i:'知识
 const edge=(a,b,i,label='supports')=>({id:'e'+i,from:'n'+a,to:'n'+b,label,explanation:'Source-grounded explanation',source:'Original.pdf · p. '+i,evidence:i%3===0?'inference':'material'});
 function mount(nodes,edges,settings={}){
   const dom=createDOM(settings),host=dom.make('div','framework-test');
-  for(const file of ['hover-bridge.js','scroll-chain.js','framework-routing.js','relationship-mindmap.js'])dom.run(path.join(templates,file));
-  const graph=dom.context.LFMMindMap.mount(host,{nodes,edges,language:settings.language||'en',title:'Framework map',describe:id=>dom.make('p',null,dom.document.createDocumentFragment()),sourceText:value=>'DISPLAY '+value});
+  for(const file of ['hover-bridge.js','scroll-chain.js','graph-motion.js','framework-routing.js','relationship-mindmap.js'])dom.run(path.join(templates,file));
+  const graph=dom.context.LFMMindMap.mount(host,{nodes,edges,language:settings.language||'en',title:'Framework map',describe:id=>{
+    const content=dom.document.createDocumentFragment(),source=nodes.find(n=>n.id===id);
+    const title=dom.make('h3',null,content);title.textContent=source.title;
+    const description=dom.make('p',null,content);description.textContent=source.summary;
+    const link=dom.make('a',null,content);link.setAttribute('href','#source-'+id);link.textContent=source.source;
+    return content;
+  },sourceText:value=>'DISPLAY '+value});
   dom.flush();return {dom,host,graph};
 }
 const named=(f,name)=>f.host.querySelectorAll('button').find(n=>n.textContent===name);
 function full(f,en=true){named(f,en?'Expand all':'展开全部').click();f.dom.flush();}
+test('cross-links try genuine cubic candidates and expose bounded fallback diagnostics',()=>{
+  const nodes=[1,2,3].map(i=>node(i)),edges=[edge(1,2,1),edge(2,3,2),edge(3,1,3)];
+  const f=mount(nodes,edges);full(f);geometry(f,nodes,edges);
+  const shell=f.host.querySelector('.lfm-mm'),curved=f.host.querySelectorAll('.lfm-mm-wire').filter(p=>p.getAttribute('data-route-kind')==='cross-curve');
+  assert(curved.length>0,'cross-links are not unconditionally sent to orthogonal routing');assert(curved.every(p=>p.getAttribute('d').includes(' C ')));
+  assert(Number(shell.getAttribute('data-layout-passes'))<=3);assert.equal(shell.getAttribute('data-curve-candidates-per-pass'),'29');
+  assert.equal(Number(shell.getAttribute('data-curved-relations'))+Number(shell.getAttribute('data-orthogonal-fallbacks')),edges.length);
+  for(const wire of f.host.querySelectorAll('.lfm-mm-wire').filter(p=>p.getAttribute('data-route-kind')==='orthogonal-fallback'))assert(wire.getAttribute('data-route-reason'));
+  const flowLayer=f.host.querySelector('.lfm-mm-flow-layer'),labelLayer=f.host.querySelector('.lfm-mm-label-layer');
+  assert(f.host.querySelector('.lfm-mm-wires').children.indexOf(flowLayer)<f.host.querySelector('.lfm-mm-wires').children.indexOf(labelLayer));
+  for(const e of edges){const wires=f.host.querySelectorAll('.lfm-mm-wire').filter(p=>p.dataset.edgeId===e.id),flows=f.host.querySelectorAll('.lfm-mm-flow').filter(p=>p.dataset.edgeId===e.id);assert.deepEqual(flows.map(p=>p.getAttribute('d')),wires.map(p=>p.getAttribute('d')));}
+});
 function sample(description){
   const tokens=description.match(/[MLC]|-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi)||[];
   const points=[];let i=0,last;
@@ -33,9 +51,14 @@ function sample(description){
   return points;
 }
 function geometry(f,nodes,edges){
+  const ids=new Set(nodes.map(n=>n.id));edges=edges.filter(e=>ids.has(e.from)&&ids.has(e.to));
+  const connected=new Set(edges.flatMap(e=>[e.from,e.to]));
   const boxes=f.host.querySelectorAll('.lfm-mm-node').map(el=>({id:el.getAttribute('data-framework-id'),left:el.offsetLeft,top:el.offsetTop,right:el.offsetLeft+el.clientWidth,bottom:el.offsetTop+el.offsetHeight}));
   const labels=f.host.querySelectorAll('.lfm-mm-edge-label');
-  assert.equal(boxes.length,nodes.length);
+  assert.deepEqual(boxes.map(b=>b.id).sort(),[...connected].sort(),'only connected frameworks enter the canvas');
+  const list=f.host.querySelectorAll('.lfm-mm-unlinked-item').map(item=>item.getAttribute('data-framework-id'));
+  assert.deepEqual(list,[...nodes].sort((a,b)=>(a.sourceOrder||0)-(b.sourceOrder||0)).filter(n=>!connected.has(n.id)).map(n=>n.id),'all other frameworks remain in source order outside the canvas');
+  assert.deepEqual([...boxes.map(b=>b.id),...list].sort(),[...ids].sort(),'graph and list preserve the canonical framework inventory');
   assert.equal(labels.length,edges.length);
   for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++)assert(!(boxes[i].left<boxes[j].right&&boxes[i].right>boxes[j].left&&boxes[i].top<boxes[j].bottom&&boxes[i].bottom>boxes[j].top),'node overlap');
   const paths=f.host.querySelectorAll('.lfm-mm-wire');
@@ -49,10 +72,11 @@ function geometry(f,nodes,edges){
       assert(boxes.filter(b=>b.id!==e.from&&b.id!==e.to).every(b=>points.every(pt=>pt.x<=b.left||pt.x>=b.right||pt.y<=b.top||pt.y>=b.bottom)),'wire crosses a foreign card');
     }
     const start=sample(own[0].getAttribute('d'))[0],end=sample(own[1].getAttribute('d')).at(-1);
-    for(const [pt,id] of [[start,e.from],[end,e.to]]){
+    for(const [pt,id,target] of [[start,e.from,false],[end,e.to,true]]){
       const card=boxes.find(b=>b.id===id);
       assert.equal(pt.y,(card.top+card.bottom)/2);
-      assert([card.left,card.right,card.right+18].some(x=>Math.abs(pt.x-x)<.01),'wrong endpoint port');
+      const ports=target?[card.left-8,card.right+8,card.right+26]:[card.left,card.right,card.right+18];
+      assert(ports.some(x=>Math.abs(pt.x-x)<.01),target?'arrow tip needs an 8px gap at the actual target port':'wrong source port');
     }
   }
   const labelBounds=[];
@@ -67,19 +91,26 @@ function geometry(f,nodes,edges){
 
 for(const en of [true,false]){
   const language=en?'en':'zh-CN';
-  test(language+': sparse groups and unlinked nodes stay compact and complete',()=>{
+  test(language+': sparse groups keep all relations and move unlinked frameworks to a collapsed list',()=>{
     const nodes=Array.from({length:20},(_,i)=>node(i+1,en));
     const edges=[edge(2,12,1),edge(15,12,2),edge(3,9,3),edge(10,7,4)];
     const f=mount(nodes,edges,{language,width:1440});full(f,en);geometry(f,nodes,edges);
     assert(Number.parseFloat(f.host.querySelector('.lfm-mm-stage').style.height)<1600);
-    assert(f.host.querySelector('.lfm-mm-sections').textContent.includes(en?'13 frameworks':'13 个框架'));
+    assert.equal(f.host.querySelectorAll('.lfm-mm-node').length,7);
+    assert.equal(f.host.querySelectorAll('.lfm-mm-unlinked-item').length,13);
+    assert(!f.host.querySelector('.lfm-mm-unlinked').open,'the list starts collapsed and Expand all does not open it');
+    assert(!f.host.querySelector('.lfm-mm-canvas').contains(f.host.querySelector('.lfm-mm-unlinked')));
     assert(!f.host.textContent.includes(en?'RELATION CENTER':'关系中心'));
     const snapshots=JSON.stringify({nodes,edges});f.graph.refresh();f.dom.flush();assert.equal(JSON.stringify({nodes,edges}),snapshots);
   });
-  test(language+': one node and all-unlinked datasets retain every card',()=>{
+  test(language+': one node and all-unlinked datasets retain every framework without a blank canvas',()=>{
     for(const total of [1,13,100]){
       const nodes=Array.from({length:total},(_,i)=>node(i+1,en)),f=mount(nodes,[],{language,width:1440});
-      geometry(f,nodes,[]);assert(Number.parseFloat(f.host.querySelector('.lfm-mm-stage').style.height)<4000);
+      geometry(f,nodes,[]);assert.equal(Number.parseFloat(f.host.querySelector('.lfm-mm-stage').style.height),0);
+      assert(f.host.querySelector('.lfm-mm-viewport').hidden);
+      assert(f.host.querySelector('.lfm-mm-empty'));
+      assert(named(f,en?'Expand all':'展开全部').disabled);
+      assert(!f.host.querySelector('.lfm-mm-unlinked').open);
     }
   });
   test(language+': measured enlarged titles and multiline labels leave genuine gaps',()=>{
@@ -90,18 +121,25 @@ for(const en of [true,false]){
   });
   test(language+': all matching frameworks are searchable and numbered consistently',()=>{
     const nodes=Array.from({length:12},(_,i)=>node(i+1,en)),f=mount(nodes,[],{language});
-    const search=f.host.querySelector('input');search.value=en?'framework':'框架';search.dispatch('input');f.dom.flush();
+    const search=f.host.querySelector('input');search.focus();search.value=en?'framework':'框架';search.dispatch('input');f.dom.flush();
     assert.equal(f.host.querySelectorAll('.lfm-mm-result').length,12);
+    assert.equal(f.dom.document.activeElement,search,'typing does not move keyboard focus');
     f.host.querySelectorAll('.lfm-mm-result')[11].click();f.dom.flush();
-    assert.equal(f.host.querySelector('.lfm-mm-node.is-selected').getAttribute('data-framework-id'),'n12');
-    assert(f.host.querySelector('.lfm-mm-node.is-selected').textContent.includes('12 /'));
-    search.value='missing-unique-token';search.dispatch('input');assert.equal(f.host.querySelectorAll('.lfm-mm-result').length,0);assert.equal(f.host.querySelectorAll('.lfm-mm-node.is-selected').length,0);
+    const selected=f.host.querySelector('.lfm-mm-unlinked-item.is-selected'),detail=f.host.querySelector('.lfm-mm-unlinked-detail');
+    assert.equal(selected.getAttribute('data-framework-id'),'n12');
+    assert(selected.textContent.includes('12 ·'));assert.equal(selected.getAttribute('aria-expanded'),'true');
+    assert(f.host.querySelector('.lfm-mm-unlinked').open);assert(!detail.hidden);
+    assert.equal(detail.getAttribute('aria-labelledby'),selected.id);assert(detail.textContent.includes(nodes[11].source));
+    assert.equal(detail.querySelector('a').getAttribute('href'),'#source-n12');
+    assert.equal(f.dom.document.activeElement,detail,'explicit selection moves focus to readable source details');
+    assert.equal(f.host.querySelectorAll('.lfm-mm-node').length,0,'search does not inject isolated nodes into the canvas');
+    search.value='missing-unique-token';search.dispatch('input');assert.equal(f.host.querySelectorAll('.lfm-mm-result').length,0);assert.equal(f.host.querySelectorAll('.lfm-mm-unlinked-item.is-selected').length,0);assert(detail.hidden);
     search.value='';search.dispatch('input');assert(f.host.querySelector('.lfm-mm-results').hidden);
   });
   test(language+': direct neighbors and edge endpoints have distinct selection states',()=>{
     const nodes=[1,2,3,4].map(i=>node(i,en)),edges=[edge(1,2,1),edge(2,3,2)],f=mount(nodes,edges,{language});full(f,en);
     f.host.querySelectorAll('.lfm-mm-node').find(n=>n.getAttribute('data-framework-id')==='n1').querySelector('button').click();
-    assert.equal(f.host.querySelectorAll('.lfm-mm-node.is-muted').length,2);
+    assert.equal(f.host.querySelectorAll('.lfm-mm-node.is-muted').length,1);
     f.host.querySelectorAll('.lfm-mm-edge-label')[1].dispatch('keydown',{key:'Enter'});
     assert.equal(f.host.querySelectorAll('.lfm-mm-node.is-selected').length,2);
     assert.equal(f.host.querySelectorAll('.lfm-mm-edge-label.is-active').length,1);
@@ -116,11 +154,47 @@ test('cycles, dense cross-links and disconnected groups retain labels and arrow 
     named(f,'Collapse').click();f.dom.flush();full(f);geometry(f,nodes,edges);
   }
 });
-test('narrow unlinked grids use one readable column',()=>{
+test('narrow all-unlinked views use the list without a large graph viewport',()=>{
   const nodes=Array.from({length:12},(_,i)=>node(i+1)),f=mount(nodes,[],{width:390});
   geometry(f,nodes,[]);
-  assert.equal(new Set(f.host.querySelectorAll('.lfm-mm-node').map(n=>n.offsetLeft)).size,1);
-  assert(Number.parseFloat(f.host.querySelector('.lfm-mm-stage').style.width)<=390);
+  assert(f.host.querySelector('.lfm-mm-viewport').hidden);assert.equal(f.host.querySelectorAll('.lfm-mm-node').length,0);
+  assert.equal(f.host.querySelectorAll('.lfm-mm-unlinked-item').length,12);
+  assert.equal(Number.parseFloat(f.host.querySelector('.lfm-mm-stage').style.width),0);
+});
+test('unlinked list preserves source order, source links and keyboard selection across graph refresh',()=>{
+  const nodes=[node(7),node(3),node(1),node(5),node(2)],edges=[edge(1,2,1)],original=JSON.stringify({nodes,edges}),f=mount(nodes,edges);
+  full(f);geometry(f,nodes,edges);
+  const items=f.host.querySelectorAll('.lfm-mm-unlinked-item'),list=f.host.querySelector('.lfm-mm-unlinked');
+  assert.deepEqual(items.map(n=>n.getAttribute('data-framework-id')),['n3','n5','n7']);
+  list.open=true;items[1].click();
+  const detail=f.host.querySelector('.lfm-mm-unlinked-detail');
+  assert(!detail.hidden);assert.equal(detail.querySelector('a').getAttribute('href'),'#source-n5');
+  f.graph.refresh();f.dom.flush();full(f);
+  assert.equal(detail.getAttribute('data-framework-id'),'n5');assert(!detail.hidden);
+  assert.equal(items[1].getAttribute('aria-expanded'),'true');
+  f.host.querySelector('.lfm-mm-select').click();
+  assert(detail.hidden);assert.equal(items[1].getAttribute('aria-expanded'),'false');
+  assert.equal(JSON.stringify({nodes,edges}),original,'rendering and selection never mutate source inventory or evidence');
+});
+test('edges with missing endpoints do not promote isolated frameworks into the canvas',()=>{
+  const nodes=[node(1),node(2)],edges=[{...edge(1,2,1),to:'missing'}],f=mount(nodes,edges);
+  geometry(f,nodes,edges);assert(f.host.querySelector('.lfm-mm-viewport').hidden);
+  assert.equal(f.host.querySelectorAll('.lfm-mm-unlinked-item').length,2);
+});
+test('empty framework inventories render a concise empty state without exceptions',()=>{
+  const f=mount([],[]);geometry(f,[],[]);
+  assert(f.host.querySelector('.lfm-mm-empty'));assert(f.host.querySelector('.lfm-mm-viewport').hidden);
+  assert.equal(f.host.querySelectorAll('.lfm-mm-unlinked-item').length,0);
+});
+test('all-unlinked fullscreen retains inline details, source links and theme identity',()=>{
+  for(const theme of ['warm-paper','minimal','dark']){
+    const nodes=[node(1),node(2)],f=mount(nodes,[],{theme});
+    f.host.querySelectorAll('.lfm-mm-unlinked-item')[1].click();named(f,'Fullscreen').click();f.dom.flush();
+    assert(!f.host.querySelector('.lfm-mm-unlinked-detail').hidden);assert(f.host.querySelector('.lfm-mm-viewport').hidden);
+    assert.equal(f.host.querySelector('.lfm-mm-unlinked-detail').querySelector('a').getAttribute('href'),'#source-n2');
+    named(f,'Exit fullscreen').click();f.dom.flush();geometry(f,nodes,[]);
+    assert.equal(f.dom.document.body.dataset.theme,theme);
+  }
 });
 for(const nativeFullscreen of [false,true])test((nativeFullscreen?'native':'fallback')+' fullscreen, panel return and source details preserve graph state',()=>{
   const nodes=[node(1),node(2),node(3)],edges=[edge(1,2,1),edge(2,3,2)],f=mount(nodes,edges,{nativeFullscreen});full(f);
@@ -130,6 +204,13 @@ for(const nativeFullscreen of [false,true])test((nativeFullscreen?'native':'fall
   const label=f.host.querySelector('.lfm-mm-edge-label');label.dispatch('focus');
   assert(f.dom.document.querySelector('.lfm-mm-hover').textContent.includes('DISPLAY Original.pdf'));
 });
+test('Escape programmatically exits native framework fullscreen and preserves graph',async()=>{
+  const nodes=[node(1),node(2)],edges=[edge(1,2,1)],f=mount(nodes,edges,{nativeFullscreen:true});full(f);
+  named(f,'Fullscreen').click();f.dom.flush();assert(f.dom.document.fullscreenElement);
+  f.dom.document.dispatch('keydown',{key:'Escape'});await Promise.resolve();f.dom.flush();
+  assert.equal(f.dom.document.fullscreenElement,null);geometry(f,nodes,edges);
+});
+
 test('all theme identities and canonical inputs survive render refresh',()=>{
   for(const theme of ['warm-paper','minimal','dark']){
     const nodes=[node(1),node(2)],edges=[edge(1,2,1)],original=JSON.stringify({nodes,edges}),f=mount(nodes,edges,{theme});

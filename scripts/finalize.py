@@ -23,6 +23,7 @@ from verify_static import verify as verify_static
 from verify_relations import check_page as check_relations
 from action_rules import load_and_validate
 from content_review import validate_file as validate_content_review
+from workflow_io import skill_metadata
 
 
 def publish_move(source, destination, stage, output_dir):
@@ -46,11 +47,20 @@ def publish_move(source, destination, stage, output_dir):
             time.sleep(.1 * (attempt + 1))
 
 
-def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
+def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False, compatibility=None):
     kb, out = Path(kb).resolve(), Path(output_dir).resolve()
     if not name or Path(name).name != name or any(c in name for c in '/\\:') or name in ('.', '..'):
         raise ValueError('name must be a filename stem, not a path')
     page = read(Path(page_file))
+    if compatibility not in (None, '1.03'):
+        raise ValueError('Unsupported compatibility contract; use explicit 1.03 for existing deliveries')
+    if legacy_rule_ledger and compatibility:
+        raise ValueError('Choose one explicit compatibility route, not both')
+    records = [read(p) for p in sorted((kb / 'unit-records').glob('*.json'))]
+    modern_records = any(r.get('schemaVersion') == 'learn-from-materials/unit-record-v2' for r in records)
+    has_relations = (kb / 'relation-ledger.json').is_file()
+    if (legacy_rule_ledger or compatibility) and (modern_records or has_relations):
+        raise ValueError('New relation/unit artifacts cannot fall back to an older publication contract')
     if page['meta']['mode'] != 'overview':
         raise ValueError('finalize.py currently accepts overview pages; topic/unit pages use render_page.py')
     # Fail before publishing anything if either canonical file is missing.
@@ -67,6 +77,7 @@ def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
     exports = check_canonical(page, kb)
     ledger = None
     content_review = None
+    relations = None
     if page['meta']['learningDepth'] == 'systematic' and not legacy_rule_ledger:
         ledger = load_and_validate(page, kb)
         review_path = kb / 'content-review.json'
@@ -76,10 +87,20 @@ def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
         if review_errors:
             raise ValueError('Content review validation failed: ' + '; '.join(review_errors))
         content_review = json.loads(review_path.read_text(encoding='utf-8'))
+        if compatibility is None:
+            from relation_ledger import load_and_validate as validate_relation_inventory
+            relations = validate_relation_inventory(page, kb)
+            if not records or not all(r.get('schemaVersion') == 'learn-from-materials/unit-record-v2' for r in records):
+                raise ValueError('New 1.04 systematic delivery requires unit-record-v2 for every unit')
+            if content_review.get('schemaVersion') != 'learn-from-materials/content-review-v3':
+                raise ValueError('New 1.04 systematic delivery requires content-review-v3 and both source-first structure review passes')
+            isolated = {r['frameworkId'] for r in relations['isolatedFrameworks']}
+            if isolated != {r['frameworkId'] for r in ledger['independentFrameworks']}:
+                raise ValueError('Action-rule and relation ledgers disagree on isolated frameworks')
     target_kb = out / (name + '.learnkb')
     if target_kb == kb or target_kb.is_relative_to(kb):
         raise ValueError('Choose an output directory outside the source knowledge base')
-    targets = {k: out / (name + suffix) for k, suffix in [('page','.page.json'),('html','.html'),('markdown','.md'),('manifest','.delivery.json'),('archive','.zip')]}
+    targets = {k: out / (name + suffix) for k, suffix in [('page','.page.json'),('html','.html'),('markdown','.md'),('methodologyExport','.methodology.md'),('manifest','.delivery.json'),('archive','.zip')]}
     if any(p.exists() for p in [target_kb, *targets.values()]):
         raise ValueError('A delivery target already exists. Choose a new name/directory to preserve the prior output.')
     relation_report = check_relations(page, ledger=ledger, allow_empty=legacy_rule_ledger)
@@ -95,8 +116,9 @@ def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
         # Extraction caches are rebuildable working data, not provenance.
         # Their digest filenames plus a staging path can also exceed Windows
         # path limits. Keep them in the source KB, outside the delivery ZIP.
-        shutil.copytree(kb, staged_kb, ignore=shutil.ignore_patterns('__pycache__','*.pyc','.extraction-cache'))
+        shutil.copytree(kb, staged_kb, ignore=shutil.ignore_patterns('__pycache__','*.pyc','.extraction-cache','.pipeline'))
         export_readable(staged_kb, exports)
+        staged['methodologyExport'].write_bytes((staged_kb / 'methodology.md').read_bytes())
         page['meta']['knowledgeBase'] = target_kb.name + '/INDEX.md'
         staged['page'].write_text(json.dumps(page,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         errors = verify(staged['page'], staged_kb,
@@ -111,20 +133,24 @@ def finalize(page_file, kb, output_dir, name, legacy_rule_ledger=False):
         if errors:
             raise ValueError('Static validation failed: ' + '; '.join(errors))
         verify_readable(staged_kb, exports)
-        files = [staged['page'],staged['html'],staged['markdown'],*sorted(p for p in staged_kb.rglob('*') if p.is_file())]
+        files = [staged['page'],staged['html'],staged['markdown'],staged['methodologyExport'],*sorted(p for p in staged_kb.rglob('*') if p.is_file())]
         heading_file = staged_kb / 'source-heading-index.json'
         heading_entries = json.loads(heading_file.read_text(encoding='utf-8')).get('entries', []) if heading_file.is_file() else []
         visual_heading_count = sum(item.get('verification') == 'visual' for item in heading_entries if isinstance(item, dict))
         # Content review cannot attest a render that does not yet exist. Browser
         # geometry is recorded separately against this exact HTML hash.
         en = page['meta'].get('language') == 'en'
-        manifest = {'skillVersion':'1.0','skillRevision':'release','status':'static-only','pageId':page['meta']['pageId'],
-            'checks':['canonical-evidence','coverage','snapshot-equality','derived-files','static-html','relations'] + (['action-rule-ledger','content-review'] if ledger else []) + (['pdf-heading-index'] if (staged_kb/'source-heading-index.json').is_file() else []),
+        skill = skill_metadata()
+        manifest = {'skillVersion':skill['version'],'skillRevision':skill['revision'],'status':'static-only','pageId':page['meta']['pageId'],
+            'checks':['canonical-evidence','coverage','snapshot-equality','derived-files','static-html','relations'] + (['action-rule-ledger','content-review'] if ledger else []) + (['relation-candidates','structure-reviews'] if relations else []) + (['pdf-heading-index'] if (staged_kb/'source-heading-index.json').is_file() else []),
             'relations':relation_report.as_dict(),
             'headingIndex':{'textEntries':len(heading_entries)-visual_heading_count,'visualEntries':visual_heading_count},
             'contentValidation':'passed',
             'semanticReview':'recorded-not-machine-proven' if content_review else 'not-recorded',
+            'relationReviewContract':'1.04' if relations else ('1.03-compatibility-not-upgraded' if compatibility else ('legacy-not-run' if legacy_rule_ledger else 'not-applicable')),
+            'relationInventory':{'candidates':len(relations['candidates']),'scopes':len(relations['scopes']),'integratorId':relations['integratorId']} if relations else None,
             'layoutCheck':'not-run','visualReview':'not-run',
+            'methodologyExport':targets['methodologyExport'].name,
             'warnings':[*warnings,*relation_report.warnings] + (['PDF headings include manual visual evidence; their text was not machine-verified' if en else 'PDF 标题索引含人工视觉核验条目，程序未验证其文字'] if visual_heading_count else []) + ['Browser visual checks were not run; this delivery passed static validation only' if en else '视觉检查未运行；此交付仅完成静态校验'],
             'files':[{'path':p.relative_to(stage).as_posix(),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]}
         staged['manifest'].write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
@@ -157,8 +183,9 @@ def main():
     p.add_argument('page',type=Path);p.add_argument('--knowledge-base',type=Path,required=True)
     p.add_argument('--output-dir',type=Path,required=True);p.add_argument('--name',required=True)
     p.add_argument('--legacy-rule-ledger',action='store_true',help='Only for re-delivering an existing overview created before the rule ledger')
+    p.add_argument('--compatibility',choices=('1.03',),help='Explicit existing 1.03 re-delivery; does not claim the 1.04 relation review contract')
     a=p.parse_args()
-    try:print(json.dumps(finalize(a.page,a.knowledge_base,a.output_dir,a.name,a.legacy_rule_ledger),ensure_ascii=False,indent=2))
+    try:print(json.dumps(finalize(a.page,a.knowledge_base,a.output_dir,a.name,a.legacy_rule_ledger,a.compatibility),ensure_ascii=False,indent=2))
     except (OSError,ValueError,KeyError,TypeError) as exc:p.exit(2,str(exc)+'\n')
 
 

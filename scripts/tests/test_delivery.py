@@ -53,7 +53,12 @@ class DeliveryTests(unittest.TestCase):
             result=finalize(self.page_file,self.kb,Path(t)/'out','review',legacy_rule_ledger=True)
             page=json.loads(Path(result['page']).read_text(encoding='utf-8'))
             self.assertEqual(page['meta']['pageId'],self.page['meta']['pageId'])
+            self.assertEqual(Path(result['methodologyExport']).read_bytes(),Path(result['methodology']).read_bytes())
+            manifest=json.loads(Path(result['manifest']).read_text(encoding='utf-8'))
+            self.assertEqual(manifest['skillVersion'],'1.1.0')
+            self.assertEqual(manifest['methodologyExport'],'review.methodology.md')
             with zipfile.ZipFile(result['archive']) as z:
+                self.assertEqual(z.read('review.methodology.md'),z.read('review.learnkb/methodology.md'))
                 for name in ['methodology.md','methodology.json','methods.json','patterns.md']:
                     self.assertGreater(len(z.read('review.learnkb/'+name)),10)
                 self.assertEqual(json.loads(z.read('review.learnkb/methodology.json')),page['methodology'])

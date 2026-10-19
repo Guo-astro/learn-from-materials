@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 
 SCHEMA = 'learn-from-materials/content-review-v1'
+SCHEMA_V2 = 'learn-from-materials/content-review-v2'
+SCHEMA_V3 = 'learn-from-materials/content-review-v3'
 INPUT_FILES = ('source_map.json', 'full_text.txt', 'summary-ledger.json', 'coverage-audit.json',
                'action-rule-ledger.json', 'methods.json', 'methodology.json')
 
@@ -28,6 +30,13 @@ def fingerprints(page, kb):
     canonical['methodology'] = read(kb / 'methodology.json')
     canonical['meta'].pop('knowledgeBase', None)  # only destination changes during publication
     result = {name: hashlib.sha256((kb / name).read_bytes()).hexdigest() for name in INPUT_FILES}
+    relation = kb / 'relation-ledger.json'
+    if relation.is_file():
+        result['relation-ledger.json'] = hashlib.sha256(relation.read_bytes()).hexdigest()
+    # New authoring records also contain full unit prose. Old deliveries without
+    # these records keep their existing fingerprint contract unchanged.
+    for path in sorted((kb / 'unit-records').glob('*.json')):
+        result[path.relative_to(kb).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     result['page'] = digest(canonical)
     return result
 
@@ -40,7 +49,7 @@ def ids(value):
     return isinstance(value, list) and all(text(x) for x in value) and len(value) == len(set(value))
 
 
-def validate(review, page, kb):
+def _validate_v1(review, page, kb):
     errors = []
     kb = Path(kb).resolve()
 
@@ -65,6 +74,23 @@ def validate(review, page, kb):
         raw = (kb / 'full_text.txt').read_text(encoding='utf-8')
     except (OSError, ValueError, TypeError, KeyError) as exc:
         return errors + ['content-review: invalid input: ' + str(exc)]
+    try:
+        candidates = read(kb / 'action-rule-ledger.json').get('candidates', [])
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        return errors + ['content-review: invalid action-rule ledger: ' + str(exc)]
+    return errors + validate_evidence(review, page, kb, blocks, audit, ledger, raw, candidates)
+
+
+def validate_evidence(review, page, kb, blocks, audit, ledger, raw, candidates):
+    """Shared v1/v2 evidence gates; caller supplies the explicit source scope."""
+    errors = []
+    kb = Path(kb).resolve()
+
+    def need(ok, message):
+        if not ok:
+            errors.append(message)
+        return ok
+
     if not isinstance(blocks, list) or not isinstance(audit, dict) or not isinstance(ledger, dict):
         return errors + ['content-review: invalid source map/audit/summary ledger']
     by_id, passages = {}, {}
@@ -163,7 +189,6 @@ def validate(review, page, kb):
         for cid in cids:
             need(sid in claim_sources.get(cid, set()), 'content-review: mapped claim lacks evidence for block: ' + sid)
     rules = {r['id']: r for r in page.get('decisionRules', [])}
-    candidates = read(kb / 'action-rule-ledger.json').get('candidates', [])
     rule_units = {c.get('targetRuleId'): c.get('unitId') for c in candidates if isinstance(c, dict) and c.get('status') == 'retained'}
     for rid, row in rows(review['ruleReviews'], 'ruleId', rules, 'ruleReviews').items():
         need(row.get('status') in {'supported', 'revised'}, 'ruleReviews: visible rule cannot be excluded/pending')
@@ -216,6 +241,17 @@ def validate(review, page, kb):
             else:
                 need(bool(targets) and all(t in claims and claims[t].get('unitId') == uid for t in targets), label + ': real same-unit claim targets required')
     return errors
+
+
+def validate(review, page, kb):
+    """Accept old complete-book reviews and scoped 1.03 unit/global reviews."""
+    if isinstance(review, dict) and review.get('schemaVersion') in {SCHEMA_V2, SCHEMA_V3}:
+        from unit_review import validate_complete
+        return validate_complete(review, page, kb)
+    if any(read(p).get('schemaVersion') == 'learn-from-materials/unit-record-v2'
+           for p in (Path(kb) / 'unit-records').glob('*.json')):
+        return ['content-review: v2 unit records require content-review-v3; no legacy downgrade']
+    return _validate_v1(review, page, kb)
 
 
 def validate_file(path, page, kb):

@@ -171,7 +171,7 @@ class QuickDeliveryTests(unittest.TestCase):
         files = json.loads(result.stdout)
         page = json.loads(Path(files['page']).read_text(encoding='utf-8'))
         manifest = json.loads(Path(files['manifest']).read_text(encoding='utf-8'))
-        self.assertEqual(manifest['skillVersion'], '1.0')
+        self.assertEqual(manifest['skillVersion'], '1.1.0')
         self.assertEqual(manifest['status'], 'static-only')
         self.assertEqual(manifest['visualReview'], 'not-run')
         self.assertEqual(page['meta']['pageId'], fixture['page']['meta']['pageId'])

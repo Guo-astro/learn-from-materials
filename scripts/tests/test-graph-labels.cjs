@@ -13,7 +13,7 @@ const kindLabel=(kind,en)=>({main:en?'Next':'接着做',branch:en?'Only when con
 
 function mount(model,settings={}){
   const dom=createDOM(settings),host=dom.make('div','map'),detail=dom.make('div','detail');
-  for(const file of ['hover-bridge.js','scroll-chain.js','graph-studio.js'])dom.run(path.join(templates,file));
+  for(const file of ['hover-bridge.js','scroll-chain.js','graph-motion.js','graph-studio.js'])dom.run(path.join(templates,file));
   const graph=dom.context.LFMGraphStudio.mount(host,{...model,language:settings.language||'zh-CN',kind:'methodology',title:'Test',detail,describe:id=>dom.make('p',null,dom.document.createDocumentFragment()),onSelect(){}});
   dom.flush();return{dom,graph,host,detail};
 }
@@ -82,6 +82,19 @@ test('seeded branching, cyclic and disconnected shapes preserve safe label slots
 test('a hidden panel keeps its geometry until it becomes measurable again',()=>{
   const f=mount(sampleModel(true),{language:'en'}),before=geometry(f);f.host.hidden=true;f.graph.refresh();f.host.hidden=false;f.graph.refresh();assert.deepEqual(geometry(f),before);
 });
+test('narrow Fit width preserves readable card scale and Overview remains available',()=>{
+  const f=mount(sampleModel(true),{language:'en',width:390});
+  const tools=f.graph.root.querySelector('.diagram-tools');
+  const scale=()=>Number.parseInt(tools.querySelector('output').textContent,10);
+  assert(scale()>=80,'narrow default does not shrink readable titles into an overview');
+  const viewport=f.graph.root.querySelector('.diagram-viewport'),sizer=f.graph.root.querySelector('.diagram-sizer');
+  assert(Number.parseFloat(sizer.style.width)>=viewport.clientWidth,'oversized content stays on a scrollable canvas');
+  tools.querySelectorAll('button').find(n=>n.textContent==='Overview').click();
+  assert(scale()<80,'Overview can still intentionally fit the complete graph');
+  tools.querySelectorAll('button').find(n=>n.textContent==='Fit width').click();
+  assert(scale()>=80);geometry(f);
+});
+
 test('edge selection survives renderer refresh and width/overview zoom',()=>{
   const model=sampleModel(true),edge=model.edges.find(e=>e.kind==='feedback');
   assert(edge,'fixture retains a feedback edge');

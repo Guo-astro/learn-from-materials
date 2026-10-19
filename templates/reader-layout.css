@@ -34,3 +34,8 @@ body[data-theme] :is(.source-target,.chapter-conclusion,.ch-view)[data-source]::
   body[data-theme] .tabs > .tab{flex:0 0 auto;min-width:0;padding:10px 12px}
   body[data-theme] :is(.note,.note[data-source],.note:nth-child(3n+1),.note:nth-child(4n+1)){padding-bottom:58px}
 }
+/* Keep legacy source and unit-button pseudo tooltips inside the reader width. */
+body[data-theme] [data-source]:not(.note)::after{
+  max-width:calc(100% - 8px);white-space:normal;overflow-wrap:anywhere;box-sizing:border-box;
+}
+body[data-theme] .ch-send[data-tooltip]::after{box-sizing:border-box}

@@ -13,22 +13,92 @@
   const view=document.getElementById('chView');
   if(view){
     const tip=el('div',null,'content-source-tooltip');tip.id='contentSourceTooltip';tip.setAttribute('role','tooltip');tip.hidden=true;document.body.append(tip);
-    let active=null;
-    function hide(){if(active)active.removeAttribute('aria-describedby');active=null;tip.hidden=true;}
-    function show(target,x,y){
-      if(!target||!view.contains(target)){hide();return;}
+    let active=null,hoverTarget=null,focusTarget=null,suppressed=null,showTimer=0,hideTimer=0;
+    const targetOf=node=>{
+      const target=node instanceof Element?node.closest('.source-target[data-source]'):null;
+      return target&&view.contains(target)?target:null;
+    };
+    const visible=target=>target&&view.contains(target)&&!document.hidden&&target.getClientRects().length>0;
+    function clearTimers(){clearTimeout(showTimer);clearTimeout(hideTimer);showTimer=hideTimer=0;}
+    function hide(){clearTimers();if(active)active.removeAttribute('aria-describedby');active=null;tip.hidden=true;}
+    function reset(){hide();hoverTarget=focusTarget=suppressed=null;}
+    function releaseSuppression(){if(suppressed&&suppressed!==hoverTarget&&suppressed!==focusTarget)suppressed=null;}
+    function dismiss(){suppressed=active||hoverTarget||focusTarget;hide();}
+    function show(target){
+      if(!visible(target)||target===suppressed){hide();return;}
       if(active&&active!==target)active.removeAttribute('aria-describedby');active=target;
       tip.textContent=sourceText(target.dataset.source);tip.hidden=false;target.setAttribute('aria-describedby',tip.id);
-      tip.style.left='12px';tip.style.top='12px';
+      // Anchor to the source item, never to a moving pointer. Keep long citations
+      // scrollable within the available space above or below that item.
+      const anchor=target.getBoundingClientRect(),gap=8,margin=12;
+      tip.style.left=margin+'px';tip.style.top=margin+'px';
+      tip.style.maxHeight=Math.max(0,innerHeight-margin*2)+'px';
       const box=tip.getBoundingClientRect();
-      tip.style.left=Math.max(12,Math.min(x+12,innerWidth-box.width-12))+'px';
-      tip.style.top=Math.max(12,Math.min(y+18,innerHeight-box.height-12))+'px';
+      const below=Math.max(0,innerHeight-margin-anchor.bottom-gap),above=Math.max(0,anchor.top-gap-margin);
+      const useBelow=below>=box.height||below>=above;
+      tip.style.maxHeight=Math.min(innerHeight-margin*2,Math.max(below,above))+'px';
+      const height=tip.getBoundingClientRect().height;
+      tip.style.left=Math.max(margin,Math.min(anchor.left,innerWidth-box.width-margin))+'px';
+      tip.style.top=Math.max(margin,Math.min(useBelow?anchor.bottom+gap:anchor.top-gap-height,innerHeight-height-margin))+'px';
     }
-    view.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;show(e.target.closest('[data-source]'),e.clientX,e.clientY);});
-    view.addEventListener('pointerleave',hide);
-    view.addEventListener('focusin',e=>{const t=e.target.closest('.source-target');if(t){const b=t.getBoundingClientRect();show(t,b.left,b.bottom);}else hide();});
-    view.addEventListener('focusout',hide);document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});
-    window.addEventListener('scroll',hide,true);window.addEventListener('resize',hide);
+    function queueShow(target,delay=300){
+      clearTimers();
+      if(target===active&&!tip.hidden)return;
+      hide();
+      if(!visible(target)||target===suppressed)return;
+      showTimer=setTimeout(()=>{showTimer=0;if(target===hoverTarget||target===focusTarget)show(target);},delay);
+    }
+    function queueHide(){
+      clearTimers();
+      hideTimer=setTimeout(()=>{
+        hideTimer=0;
+        const target=hoverTarget||focusTarget;
+        if(visible(target)&&target!==suppressed)show(target);else hide();
+      },120);
+    }
+    function hover(target){
+      if(target===hoverTarget)return;
+      hoverTarget=target;releaseSuppression();
+      if(target)queueShow(target);else queueHide();
+    }
+    view.addEventListener('pointerover',e=>{if(e.pointerType!=='touch')hover(targetOf(e.target));});
+    view.addEventListener('pointerout',e=>{
+      if(e.pointerType==='touch'||tip.contains(e.relatedTarget))return;
+      hover(targetOf(e.relatedTarget));
+    });
+    view.addEventListener('pointerleave',e=>{
+      if(e.pointerType!=='touch'&&!tip.contains(e.relatedTarget))hover(null);
+    });
+    tip.addEventListener('pointerenter',clearTimers);
+    tip.addEventListener('pointerleave',e=>{
+      hoverTarget=targetOf(e.relatedTarget);releaseSuppression();queueHide();
+    });
+    view.addEventListener('focusin',e=>{
+      const nextFocus=targetOf(e.target);
+      // A real blur/refocus is a new keyboard entry, even while the pointer
+      // remains over this item. Repeated focusin without a blur stays dismissed.
+      if(nextFocus&&nextFocus!==focusTarget&&suppressed===nextFocus)suppressed=null;
+      focusTarget=nextFocus;releaseSuppression();clearTimers();
+      if(focusTarget)show(focusTarget);else hide();
+    });
+    view.addEventListener('focusout',e=>{
+      focusTarget=targetOf(e.relatedTarget);releaseSuppression();
+      if(focusTarget)show(focusTarget);else if(!hoverTarget)hide();
+    });
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')dismiss();});
+    document.addEventListener('click',e=>{
+      if(!view.contains(e.target)&&!tip.contains(e.target))reset();
+    });
+    document.addEventListener('focusin',e=>{
+      if(!view.contains(e.target)&&!tip.contains(e.target))reset();
+    });
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)dismiss();});
+    window.addEventListener('blur',dismiss);
+    window.addEventListener('scroll',e=>{if(!(e.target instanceof Element&&tip.contains(e.target)))dismiss();},true);
+    window.addEventListener('resize',dismiss);
+    // Programmatic tab changes also close the body-level tooltip.
+    const panel=view.closest('.panel');
+    if(panel)new MutationObserver(()=>{if(!view.getClientRects().length)reset();}).observe(panel,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
     function decorate(){
       const id=document.querySelector('.ch-nav-btn.active')?.getAttribute('data-ch');const u=(data.contentUnits||[]).find(x=>x.id===id);if(!u)return;
       const detail=u.sourceDetails||{};
@@ -53,7 +123,7 @@
       }
     }
     decorate();
-    const observer=new MutationObserver(()=>{observer.disconnect();hide();decorate();observer.observe(view,{childList:true,subtree:true});});observer.observe(view,{childList:true,subtree:true});
+    const observer=new MutationObserver(()=>{observer.disconnect();reset();decorate();observer.observe(view,{childList:true,subtree:true});});observer.observe(view,{childList:true,subtree:true});
   }
   const model=data.methodology,template=document.getElementById('wholeMethodTemplate'),host=document.getElementById('rules');
   if(!model||!template||!host)return;

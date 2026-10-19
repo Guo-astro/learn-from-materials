@@ -61,6 +61,7 @@ const PROBE = [
   '      cls:svg?svg.getAttribute("class"):null,wires:wires.length,flows:flows.length,',
   '      dash:wires[0]?getComputedStyle(wires[0]).strokeDasharray:null,',
   '      off:wires[0]?getComputedStyle(wires[0]).strokeDashoffset:null,',
+  '      complete:wires.every(function(p){var c=getComputedStyle(p);return c.strokeDashoffset==="0px"&&(c.strokeDasharray==="none"||c.strokeDasharray==="0px");}),',
   '      flowOp:flows[0]?getComputedStyle(flows[0]).opacity:null,',
   '      inferStroke:(function(){var w=s.querySelector(".diagram-wire.is-inference");return w?getComputedStyle(w).stroke:null;})(),',
   '      markers:mk});',
@@ -69,7 +70,7 @@ const PROBE = [
   '})()'
 ].join('\n');
 
-const MIND_PROBE = '(function(){var m=document.querySelector("#frameworks .lfm-mm");if(!m)return JSON.stringify({vis:false,wires:0});var r=m.getBoundingClientRect();return JSON.stringify({vis:r.width>0&&r.height>0,wires:m.querySelectorAll(".lfm-mm-wire").length,nodes:m.querySelectorAll(".lfm-mm-node").length});})()';
+const MIND_PROBE = '(function(){var m=document.querySelector("#frameworks .lfm-mm");if(!m)return JSON.stringify({vis:false,wires:0});var r=m.getBoundingClientRect();return JSON.stringify({vis:r.width>0&&r.height>0,wires:new Set([].slice.call(m.querySelectorAll(".lfm-mm-wire")).map(function(p){return p.dataset.edgeId;})).size,nodes:m.querySelectorAll(".lfm-mm-node").length,curved:Number(m.dataset.curvedRelations),fallback:Number(m.dataset.orthogonalFallbacks)});})()';
 
 // Both graphs live in the same document, so a raw index is not stable: the panel
 // that is off-screen still exists and reports height 0. Always take the visible one.
@@ -133,6 +134,7 @@ const check = (label, ok, detail) => {
   console.log('--- framework mind map, expanded ---');
   check('mind map visible', first.vis === true);
   check('all framework links drawn', first.wires === expected, first.wires + ' / ' + expected);
+  check('curves/fallback account for links',first.curved+first.fallback===expected,first.curved+' curves / '+first.fallback+' local fallbacks');
 
   // --- switch away and back ----------------------------------------------
   await ev("document.getElementById('tab-content').click();1");
@@ -169,7 +171,7 @@ const check = (label, ok, detail) => {
     console.log('   ' + ' '.repeat(11) + ' inference=' + d.inferStroke);
     console.log('   ' + ' '.repeat(11) + ' ' + mk);
     check(theme + ': graph visible', d.vis === true);
-    check(theme + ': wires drawn', d.dash === 'none' || d.dash === '0px');
+    check(theme + ': wires drawn with evidence', d.complete===true);
     check(theme + ': all arrowheads solid', (d.markers || []).length >= 3 && d.markers.every(m => m.stroke === 'none'));
     if (shotDir) {
       const vh = await ev('innerHeight');

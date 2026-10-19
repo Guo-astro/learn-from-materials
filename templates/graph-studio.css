@@ -127,7 +127,7 @@ body[data-theme="dark"]{
 .diagram-count{flex-shrink:0;font-size:11px;color:var(--dg-count-ink);border:1px solid var(--dg-count-border);border-radius:30px;padding:8px 12px;white-space:nowrap}
 .diagram-toolbar{padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .diagram-legend{font:11px/1.6 var(--font-display,system-ui);color:var(--dg-legend);margin:0!important}
-.diagram-tools{display:flex;gap:5px;align-items:center}
+.diagram-tools{display:flex;gap:5px;align-items:center;flex-wrap:wrap;min-width:0;max-width:100%}
 .diagram-studio .diagram-tools button{border:1px solid var(--dg-btn-border)!important;background:var(--dg-btn-bg)!important;color:var(--dg-btn-ink)!important;border-radius:8px!important;font:12px/1.2 var(--font-display,system-ui)!important;padding:8px 10px!important;cursor:pointer;white-space:nowrap}
 .diagram-studio .diagram-tools button:hover{background:var(--dg-btn-hover)!important}
 .diagram-tools output{font-size:11px;min-width:38px;text-align:center;color:var(--dg-legend)}
@@ -158,24 +158,11 @@ body[data-theme="dark"]{
 .diagram-wires .diagram-edge-label:focus-visible{outline:none}
 .diagram-wires .diagram-edge-label:focus-visible rect{stroke:var(--dg-focus);stroke-width:2.5}
 
-/* The wire draws once on first view. A selected connection gets one direction
-   cue on a separate path; idle maps remain still. Reduced motion shows the
-   complete diagram without either animation.
-   DECLARATION ORDER IS LOAD-BEARING. `.is-drawn` must win over `:not(.is-drawn)`,
-   and the shorter `:not(...)` selector must not be allowed to outrank it, so the
-   finished state is restated LAST and at equal specificity. */
-@media (prefers-reduced-motion: no-preference){
-  .diagram-wires:not(.is-drawn) .diagram-wire{
-    stroke-dasharray:var(--wire-len,400);stroke-dashoffset:var(--wire-len,400);
-  }
-}
-.diagram-wires.is-drawn .diagram-wire{animation:dg-draw var(--draw-dur,900ms) cubic-bezier(.22,.68,.24,1) var(--draw-delay,0ms) both}
-/* The draw-in borrows a dash array to hide the line, so the animation ends on the
-   solid state and `both` holds it there. Restating it as a rule (after the hidden
-   state, above) means the line is solid even if the animation is interrupted. */
-.diagram-wires.is-drawn .diagram-wire{stroke-dasharray:none;stroke-dashoffset:0}
+/* Entrance only changes opacity: source/inference line styles and complete
+   arrow geometry remain intact even when entrance or motion is interrupted. */
+.diagram-wires.is-drawn .diagram-wire{animation:dg-draw var(--draw-dur,900ms) ease var(--draw-delay,0ms) backwards;stroke-dashoffset:0}
 .diagram-wires.is-static.is-drawn .diagram-wire{animation:none}
-@keyframes dg-draw{from{stroke-dasharray:var(--wire-len,400);stroke-dashoffset:var(--wire-len,400)}to{stroke-dasharray:none;stroke-dashoffset:0}}
+@keyframes dg-draw{from{opacity:.25}to{opacity:1}}
 
 /* The cue path shares its wire geometry and stays invisible while idle. */
 .diagram-wires .diagram-flow{
@@ -189,18 +176,18 @@ body[data-theme="dark"]{
    signal and an edge can be both. */
 .diagram-wires .diagram-flow.is-inference{--head:20;stroke:var(--dg-flow-inference);stroke-width:2.6}
 .diagram-wires .diagram-flow.is-feedback{--head:34;stroke:var(--dg-flow-feedback);stroke-width:4.4}
-.diagram-wires.is-flowing .diagram-flow.is-active{opacity:var(--flow-op,.88);animation:dg-flow var(--flow-dur,1.5s) linear 1}
-/* The tail trails the head, so a short comet reads as motion rather than a dot. */
-@keyframes dg-flow{from{stroke-dashoffset:var(--flow-travel,600)}to{stroke-dashoffset:0}}
-/* Feedback loops run slower and breathe, so a cycle never reads as a dead end. */
-.diagram-wires.is-flowing .diagram-flow.is-feedback.is-active{animation-duration:2.2s}
-/* Selection leaves the map still and uses one short direction cue. */
-.diagram-wires.is-selecting .diagram-flow.is-active{stroke-width:4.5;animation-duration:1.1s}
+.diagram-wires.is-selecting .diagram-flow.is-active{stroke-width:4.5}
 .diagram-wires.is-selecting .diagram-flow.is-dimmed{opacity:0}
+/* graph-motion.js owns bounded WAAPI cues on duplicate geometry, at most three
+   visible relations at a time. This never animates a base evidence wire. */
+.diagram-flow.is-direction-cue,.lfm-mm-flow.is-direction-cue{filter:drop-shadow(0 0 2px currentColor)}
+.diagram-wire.is-symmetric-highlight,.lfm-mm-wire.is-symmetric-highlight,.diagram-wire.is-symmetric-preview,.lfm-mm-wire.is-symmetric-preview{stroke-width:4}
+.diagram-tools button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--dg-wire)}
+body[data-motion="off"] .diagram-flow,body[data-motion="off"] .lfm-mm-flow{opacity:0!important}
 /* Reduced motion: no travel at all, but the arrows and solid lines remain —
    a composed still image of the finished diagram. */
 @media (prefers-reduced-motion: reduce){
-  .diagram-wires .diagram-flow{opacity:0;animation:none}
+  .diagram-wires .diagram-flow,.lfm-mm-flow{opacity:0!important;animation:none}
 }
 /* Coarse pointers have no hover: never depend on it to reveal anything. */
 @media (hover: none), (pointer: coarse){
@@ -217,6 +204,7 @@ body[data-theme="dark"]{
 .diagram-wires .dg-arrow-feedback{fill:var(--dg-arrow-feedback)}
 /* Lighter head for inferred links — the semantic grade survives the art upgrade. */
 .diagram-wires .dg-arrow-inference{fill:var(--dg-arrow-inference);opacity:.85}
+.diagram-wires marker path{stroke:none}
 
 /* WORKAROUND (verified 2026-09-18): inside the transformed stage, backgrounds painted on
    article/div elements (and on ::before) get alpha-blended with white in some Chromium

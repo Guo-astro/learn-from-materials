@@ -2,8 +2,8 @@
 //
 // Checks the invariants that a text-only edit can silently break: tag balance,
 // the embedded pageData JSON, theme-token discipline, and — most importantly —
-// the presence of the restrained wire-motion contract (one entrance, one
-// selected-edge direction cue, rebuild still state,
+// the presence of the bounded direction-motion contract (one entrance,
+// hover once, selected/demo batches, rebuild still state,
 // hidden-panel guard, reduced-motion gate).
 //
 //   node scripts/verify-diagram-motion.cjs page.html
@@ -75,15 +75,19 @@ check('arrowheads are solid triangles', solidTriangle && markerLoop,
   solidTriangle ? (markerLoop ? '' : 'loop does not build all three') : 'triangle literal missing');
 check('no stroked marker wedge', !/marker[\s\S]{0,400}stroke-width:\s*1/.test(s) || !solidTriangle);
 check('inference arrowheads not stroked', /dg-arrow-inference\{fill:var\(--dg-arrow-inference\);opacity/.test(s.replace(/\s+/g, '')));
-check('no legacy dashed inference',
-  !/stroke-dasharray:\s*6\s+5/.test(s) && !/dashed inference/i.test(s));
+check('methodology inference remains solid', /diagram-wire\.is-inference\{stroke:var\(--dg-wire-inference\)\}/.test(s) && !/diagram-wire\.is-inference\{[^}]*stroke-dasharray/.test(s));
+check('framework inference keeps dashes', /lfm-mm-wire\.is-inference\{[^}]*stroke-dasharray:7 6/.test(s));
 
 // ---- motion contract ------------------------------------------------------
 console.log('--- wire motion ---');
 check('draw-in keyframes', /@keyframes\s+dg-draw/.test(s));
-check('flow keyframes', /@keyframes\s+dg-flow/.test(s));
+check('shared exact-geometry cue helper', /window\.LFMGraphMotion=\{mount,symmetric\}/.test(s) && /strokeDashoffset:-length/.test(s));
 check('no perpetual feedback pulse', !/@keyframes\s+dg-breath/.test(s));
-check('selected cue runs once', /\.diagram-wires\.is-flowing \.diagram-flow\.is-active\{[^}]*linear 1/.test(s));
+check('selected cue has bounded batches', /Math\.min\(3,eligible\.length\)/.test(s) && /setTimeout\(tick,2800\)/.test(s) && /iterations:1/.test(s));
+check('hover cue runs one pass', /preview\(ids\)/.test(s) && /previewTimer=setTimeout\(refresh,2300\)/.test(s));
+check('symmetric relations never travel', /\['contrasts','contrast','comparison','parallel','compares'\]/.test(s) && /if\(symmetric\(entry\.edge\)\)return/.test(s));
+check('cue lifecycle cancels resources', /animations\.forEach\(animation=>animation\.cancel\(\)\)/.test(s) && /function destroy\(\)/.test(s) && /document\.hidden/.test(s));
+check('direction demo opt-in', /demo=false/.test(s) && /directionButton/.test(s));
 check('width and overview modes', /fitMode==='all'/.test(s) && /查看全图/.test(s));
 check('is-drawn state', /is-drawn/.test(s));
 check('is-flowing state', /is-flowing/.test(s));
@@ -92,7 +96,7 @@ check('geometry measured after insert', /getTotalLength/.test(s));
 check('rebuild re-arms the draw', /function\s+settleWires/.test(s) && /function\s+armDraw/.test(s));
 check('hidden-panel layout guard', /clientWidth<=0/.test(s));
 check('visibility re-announce', /const\s+announce\s*=/.test(s));
-check('refresh exported from mount', /refresh\(\)\{|refresh\s*:\s*function/.test(s) && /\{select,layout,root,positions,refresh\}/.test(s));
+check('refresh exported from mount', /refresh\(\)\{|refresh\s*:\s*function/.test(s) && /\{select,layout,root,positions,refresh,motion,destroy/.test(s));
 check('host calls refresh', /diagram\.refresh/.test(s) || /\.refresh\(\)/.test(s));
 check('reduced-motion still composed', (s.match(/prefers-reduced-motion/g) || []).length >= 2);
 check('reduced-motion gated in JS', /RM\.matches/.test(s));

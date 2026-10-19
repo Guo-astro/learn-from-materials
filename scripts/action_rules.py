@@ -163,6 +163,11 @@ def validate(ledger, page, kb):
              'independentFrameworks must match isolated nodes in the visible graph')
     if ledger['relationStatus'] == 'unsupported':
         need(not any(e.get('from') in framework_ids and e.get('to') in framework_ids for e in page.get('relationships', [])), 'unsupported framework graph contains visible links')
+    if (kb / 'relation-ledger.json').is_file():
+        from relation_ledger import load_and_validate as validate_relation_inventory
+        inventory = validate_relation_inventory(page, kb)
+        need(set(independent_frameworks) == {row['frameworkId'] for row in inventory['isolatedFrameworks']},
+             'isolated framework declarations differ from the source-reviewed relation inventory')
     return ledger
 
 

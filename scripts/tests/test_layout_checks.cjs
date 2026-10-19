@@ -11,5 +11,9 @@ const panel=structuredClone(normal);panel.panel.width=820;assert(checkLayout(pan
 const gap=structuredClone(normal);gap.panel.y=1200;assert(checkLayout(gap).includes('unexpected empty gap before active panel'));
 assert.deepEqual(checkFullscreen({viewportWidth:1440,viewportHeight:900,rect:{x:0,y:0,width:1440,height:900}}),[]);
 assert(checkFullscreen({viewportWidth:1440,viewportHeight:900,rect:{x:0,y:0,width:800,height:900}}).length);
+const mobile={viewportWidth:390,viewportHeight:1000,rect:{x:0,y:0,width:390,height:1000},graphKind:'methodology',renderedTitleSize:13.6,toolbarButtons:[{x:10,y:100,width:90,height:34}]};
+assert.deepEqual(checkFullscreen(mobile),[]);
+assert(checkFullscreen({...mobile,renderedTitleSize:3.4}).includes('narrow methodology default title is too small'));
+assert(checkFullscreen({...mobile,toolbarButtons:[{x:370,y:100,width:100,height:34}]}).includes('fullscreen toolbar control is clipped'));
 assert(checkLayout({}).length);
 console.log('PASS: normal layout, left blank space without overflow, narrow panel, vertical navigation, implicit grid, gap and fullscreen width');

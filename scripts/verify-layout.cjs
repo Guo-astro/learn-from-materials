@@ -81,7 +81,15 @@ function save(){fs.writeFileSync(reportPath,JSON.stringify(report,null,2)+'\n',{
             await page.locator('#frameworks .lfm-mm .lfm-mm-tools button').filter({hasText:/全屏展开|Fullscreen/}).click();
           }
           await page.waitForTimeout(150);
-          const measurements=await page.locator(selector).evaluate(n=>{const r=n.getBoundingClientRect();return {rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewportWidth:innerWidth,viewportHeight:innerHeight};});
+          const measurements=await page.locator(selector).evaluate(n=>{
+            const rect=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};};
+            const stage=n.querySelector('.diagram-stage'),title=n.querySelector('.diagram-card h4');
+            const scale=stage?Number((stage.style.transform.match(/scale\(([^)]+)\)/)||[])[1]):null;
+            return{rect:rect(n),viewportWidth:innerWidth,viewportHeight:innerHeight,
+              graphKind:stage?'methodology':'framework',
+              renderedTitleSize:title&&scale?parseFloat(getComputedStyle(title).fontSize)*scale:null,
+              toolbarButtons:[...n.querySelectorAll('.diagram-tools button,.lfm-mm-tools button')].map(rect)};
+          });
           const errors=checkFullscreen(measurements);
           await shot(`${theme}-${width}-${name}-fullscreen`);
           if(name==='frameworks')await page.locator('#frameworks .lfm-mm .lfm-mm-tools button').filter({hasText:/退出全屏|Exit fullscreen/}).click();
