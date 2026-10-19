@@ -15,9 +15,12 @@
 
 ### English
 
-Compared with public 1.0, this release adds source-first unit records and deterministic assembly, framework/relationship inventories, scoped source rereads, correctness and omission/application passes, resumable checkpoints, acceptance snapshots and phase timing. It improves curve-first framework routing, unlinked-framework lists, direction cues, source tooltips and responsive/fullscreen reading, and delivers standalone methodology Markdown at the ZIP root.
-
----
+• Adds source-first unit records and deterministic assembly, generating learning pages, chapter explanations, and source/coverage mappings from the same records.
+• Adds framework and relationship candidate ledgers that track retained, merged, and excluded items; binds unit-level source rereads and global correctness and omission/application checks to the actual inputs.
+• Prioritizes curved main branches and cross-links in framework diagrams, keeps unlinked frameworks accessible through cards, search, and a collapsible list outside the diagram, and improves direction cues, source tooltips, narrow-screen layouts, and fullscreen controls in both diagrams.
+• Provides standalone methodology Markdown in the delivery directory and at the ZIP root, consistent with the knowledge-base export; delivery metadata uses the actual skill version.
+• Standardizes a sequential workflow performed by the current executor and updates bilingual documentation, direct extraction commands, examples, and release metadata.
+• Standardizes extraction benchmark subprocess logs on UTF-8 to prevent diagnostic-output decoding errors caused by encoding differences between the Windows console and the parent process.
 
 ## 1.0 release · 2026-10-01
 
